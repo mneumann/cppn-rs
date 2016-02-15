@@ -1,4 +1,6 @@
-use super::closed01bipolar::Closed01Bipolar;
+use self::closed01bipolar::Closed01Bipolar;
+
+pub mod closed01bipolar;
 
 // make generic over the x and y types.
 trait ActivationFunction {
