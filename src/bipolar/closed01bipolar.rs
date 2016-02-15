@@ -21,11 +21,9 @@ impl Closed01Bipolar<f64> {
     #[inline(always)]
     /// Creates a new Closed01Bipolar from `f` clipped to the range [-1, 1].
     pub fn new_clipped(f: f64) -> Closed01Bipolar<f64> {
-        Closed01Bipolar::new_debug_checked(
-        if f > 1.0 {
+        Closed01Bipolar::new_debug_checked(if f > 1.0 {
             1.0
-        }
-        else if f < -1.0 {
+        } else if f < -1.0 {
             -1.0
         } else {
             f
