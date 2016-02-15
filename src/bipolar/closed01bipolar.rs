@@ -1,8 +1,15 @@
 use std::fmt::Debug;
+use std::convert::Into;
 
 /// Encapsulates a floating point number in the range [-1, 1] including both endpoints.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Closed01Bipolar<F>(F) where F: Copy + Clone + Debug + PartialEq + PartialOrd;
+
+impl Into<f64> for Closed01Bipolar<f64> {
+    fn into(self) -> f64 {
+        self.get()
+    }
+}
 
 impl Closed01Bipolar<f64> {
     #[inline(always)]
