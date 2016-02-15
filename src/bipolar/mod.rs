@@ -52,6 +52,6 @@ impl ActivationFunction for Sine {
     }
 
     fn calculate(x: f64) -> Self::Output {
-        Closed01Bipolar::new(2.0 * x.sin())
+        Closed01Bipolar::new((2.0 * x).sin())
     }
 }
