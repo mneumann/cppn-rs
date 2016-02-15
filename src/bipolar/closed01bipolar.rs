@@ -14,8 +14,11 @@ impl Into<f64> for Closed01Bipolar<f64> {
 impl Closed01Bipolar<f64> {
     #[inline(always)]
     pub fn new(f: f64) -> Closed01Bipolar<f64> {
-        assert!(f >= -1.0 && f <= 1.0);
-        Closed01Bipolar(f)
+        if f >= -1.0 && f <= 1.0 {
+            Closed01Bipolar(f)
+        } else {
+            panic!("assertion failed: f >= -1.0 && f <= 1.0; f = {}", f);
+        }
     }
 
     #[inline(always)]
