@@ -7,6 +7,6 @@ repository = "https://github.com/mneumann/cppn-rs"
 description = "Compositional Pattern Producing Networks"
 keywords = ["evolution", "neuro", "net", "cppn"]
 
-include = ["src/*.rs", "examples/*.rs", "Cargo.toml", "LICENSE", "README.md"]
+include = ["src/*.rs", "src/bipolar/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
