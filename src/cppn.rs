@@ -1,4 +1,5 @@
 use super::ActivationFunction;
+use fixedbitset::FixedBitSet;
 
 pub enum CppnNodeType {
     Bias,
@@ -17,7 +18,7 @@ impl CppnNodeIndex {
 }
 
 struct CppnLink {
-    source_node_idx: CppnNodeIndex,
+    node_idx: CppnNodeIndex,
     weight: f64,
 }
 
@@ -25,6 +26,7 @@ struct CppnNode {
     node_type: CppnNodeType,
     activation_function: Box<ActivationFunction>,
     input_links: Vec<CppnLink>,
+    output_links: Vec<CppnLink>,
 }
 
 struct CppnGraph {
@@ -45,10 +47,50 @@ impl CppnGraph {
             node_type: node_type,
             activation_function: activation_function,
             input_links: Vec::new(),
+            output_links: Vec::new(),
         });
         return idx;
     }
 
+    // Returns true if the introduction of this directed link would lead towards a cycle.
+    fn would_cycle(&self, source_node_idx: CppnNodeIndex, target_node_idx: CppnNodeIndex) -> bool {
+        if source_node_idx == target_node_idx {
+            return true;
+        }
+
+        let mut seen_nodes = FixedBitSet::with_capacity(self.nodes.len());
+        let mut nodes_to_visit = Vec::new();
+
+        // We start at the target node and iterate all paths from there. If we hit the source node,
+        // we found a cycle. Otherwise not.
+        let start = target_node_idx.index();
+
+        // We are looking for a path to this node.
+        let path_to = source_node_idx.index();
+
+        nodes_to_visit.push(start);
+        seen_nodes.insert(start);
+
+        while let Some(visit_node) = nodes_to_visit.pop() {
+            for out_link in &self.nodes[visit_node].output_links {
+                let next_node = out_link.node_idx.index();
+                if !seen_nodes.contains(next_node) {
+                    if next_node == path_to {
+                        // We found a path to `path_to`. We have found a cycle.
+                        return true;
+                    }
+
+                    seen_nodes.insert(next_node);
+                    nodes_to_visit.push(next_node)
+                }
+            }
+        }
+
+        // We haven't found a cycle.
+        return false;
+    }
+
+    // Note: Doesn't check for cycles (except in the simple reflexive case).
     fn add_link(&mut self,
                 source_node_idx: CppnNodeIndex,
                 target_node_idx: CppnNodeIndex,
@@ -57,24 +99,32 @@ impl CppnGraph {
             panic!("Loops are not allowed");
         }
 
-        if let CppnNodeType::Output = self.nodes[source_node_idx.index()].node_type {
-            panic!("Cannot have an outgoing connection from Output node");
+        {
+            let mut source_node = &mut self.nodes[source_node_idx.index()];
+            if let CppnNodeType::Output = source_node.node_type {
+                panic!("Cannot have an outgoing connection from Output node");
+            }
+            source_node.output_links.push(CppnLink {
+                node_idx: target_node_idx,
+                weight: weight,
+            });
         }
 
-        let mut target_node = &mut self.nodes[target_node_idx.index()];
+        {
+            let mut target_node = &mut self.nodes[target_node_idx.index()];
+            if let CppnNodeType::Input = target_node.node_type {
+                panic!("Cannot have an incoming connection to Input node");
+            }
 
-        if let CppnNodeType::Input = target_node.node_type {
-            panic!("Cannot have an incoming connection to Input node");
+            if let CppnNodeType::Bias = target_node.node_type {
+                panic!("Cannot have an incoming connection to Bias node");
+            }
+
+            target_node.input_links.push(CppnLink {
+                node_idx: source_node_idx,
+                weight: weight,
+            });
         }
-
-        if let CppnNodeType::Bias = target_node.node_type {
-            panic!("Cannot have an incoming connection to Bias node");
-        }
-
-        target_node.input_links.push(CppnLink {
-            source_node_idx: source_node_idx,
-            weight: weight,
-        });
     }
 }
 
@@ -99,6 +149,7 @@ impl CppnState {
 
     /// Calculates the output of node `node_idx`, recursively calculating
     /// the outputs of all dependent nodes.
+    /// Panics if it hits a cycle.
     /// XXX: Implement a non-recursive version.
     fn calculate_output_of_node(&mut self, graph: &CppnGraph, node_idx: CppnNodeIndex) -> f64 {
         match self.values[node_idx.index()] {
@@ -128,8 +179,7 @@ impl CppnState {
                 self.values[node_idx.index()] = CppnNodeValue::InCalculation;
                 let mut sum: f64 = 0.0;
                 for in_link in &node.input_links {
-                    sum += in_link.weight *
-                           self.calculate_output_of_node(graph, in_link.source_node_idx);
+                    sum += in_link.weight * self.calculate_output_of_node(graph, in_link.node_idx);
                 }
                 sum
             }

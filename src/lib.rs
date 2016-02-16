@@ -1,3 +1,5 @@
+extern crate fixedbitset;
+
 pub trait ActivationFunction {
     fn formula(&self) -> &'static str;
     fn calculate(&self, x: f64) -> f64;
