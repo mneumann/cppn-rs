@@ -1,0 +1,5 @@
+[ ] Find random link method.
+[ ] Find unconnected node pair.
+[ ] Remove link. 
+[ ] Map inputs/outputs to numbers. 
+[ ] Make calculate_output_of_node() non-recursive.
