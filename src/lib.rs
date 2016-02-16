@@ -17,3 +17,4 @@ impl ActivationFunction for Identity {
 
 pub mod bipolar;
 pub mod closed01bipolar;
+pub mod cppn;
