@@ -1,9 +1,7 @@
-use std::convert::Into;
-
 pub trait ActivationFunction {
-    type Output: Into<f64>;
     fn formula() -> &'static str;
-    fn calculate(x: f64) -> Self::Output;
+    fn calculate(x: f64) -> f64;
 }
 
 pub mod bipolar;
+pub mod closed01bipolar;
