@@ -53,10 +53,10 @@ impl CppnGraph {
     }
 
     // Returns true if the introduction of this directed link would lead towards a cycle.
-    pub fn would_cycle(&self,
-                       source_node_idx: CppnNodeIndex,
-                       target_node_idx: CppnNodeIndex)
-                       -> bool {
+    pub fn link_would_cycle(&self,
+                            source_node_idx: CppnNodeIndex,
+                            target_node_idx: CppnNodeIndex)
+                            -> bool {
         if source_node_idx == target_node_idx {
             return true;
         }
@@ -290,19 +290,19 @@ fn test_cycle() {
     assert_eq!(Ok(()), g.valid_link(h1, h2));
 
     g.add_link(i1, h1, 0.0);
-    assert_eq!(true, g.would_cycle(h1, i1));
-    assert_eq!(false, g.would_cycle(i1, h1));
-    assert_eq!(false, g.would_cycle(i1, h2));
-    assert_eq!(true, g.would_cycle(i1, i1));
-    assert_eq!(false, g.would_cycle(h1, h2));
-    assert_eq!(false, g.would_cycle(h2, h1));
-    assert_eq!(false, g.would_cycle(h2, i1));
+    assert_eq!(true, g.link_would_cycle(h1, i1));
+    assert_eq!(false, g.link_would_cycle(i1, h1));
+    assert_eq!(false, g.link_would_cycle(i1, h2));
+    assert_eq!(true, g.link_would_cycle(i1, i1));
+    assert_eq!(false, g.link_would_cycle(h1, h2));
+    assert_eq!(false, g.link_would_cycle(h2, h1));
+    assert_eq!(false, g.link_would_cycle(h2, i1));
 
     g.add_link(h1, h2, 0.0);
-    assert_eq!(true, g.would_cycle(h2, i1));
-    assert_eq!(true, g.would_cycle(h1, i1));
-    assert_eq!(true, g.would_cycle(h2, h1));
-    assert_eq!(false, g.would_cycle(i1, h2));
+    assert_eq!(true, g.link_would_cycle(h2, i1));
+    assert_eq!(true, g.link_would_cycle(h1, i1));
+    assert_eq!(true, g.link_would_cycle(h2, h1));
+    assert_eq!(false, g.link_would_cycle(i1, h2));
 }
 
 #[test]
