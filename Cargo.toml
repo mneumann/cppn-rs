@@ -11,5 +11,8 @@ include = ["src/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
 
-fixedbitset = "0.1.0"
+acyclic-network = {git = "https://github.com/mneumann/acyclic-network-rs"}
+
+[dev-dependencies]
+
 rand = "0.3"

@@ -1,6 +1,6 @@
 use super::ActivationFunction;
-use fixedbitset::FixedBitSet;
-use rand::Rng;
+use acyclic_network::{NodeType, Network, Link, Node};
+pub use acyclic_network::NodeIndex as CppnNodeIndex;
 
 pub enum CppnNodeType {
     Bias,
@@ -9,191 +9,25 @@ pub enum CppnNodeType {
     Hidden,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CppnNodeIndex(usize);
+impl NodeType for CppnNodeType {
+    fn accept_incoming_links(&self) -> bool {
+        match *self {
+            CppnNodeType::Input | CppnNodeType::Bias => false,
+            _ => true,
+        }
+    }
 
-impl CppnNodeIndex {
-    fn index(&self) -> usize {
-        self.0
+    fn accept_outgoing_links(&self) -> bool {
+        match *self {
+            CppnNodeType::Output => false,
+            _ => true,
+        }
     }
 }
 
-struct CppnLink {
-    node_idx: CppnNodeIndex,
-    weight: f64,
-}
-
-struct CppnNode {
-    node_type: CppnNodeType,
-    activation_function: Box<ActivationFunction>,
-    input_links: Vec<CppnLink>,
-    output_links: Vec<CppnLink>,
-}
-
-pub struct CppnGraph {
-    nodes: Vec<CppnNode>,
-}
-
-impl CppnGraph {
-    pub fn new() -> CppnGraph {
-        CppnGraph { nodes: Vec::new() }
-    }
-
-    pub fn add_node(&mut self,
-                    node_type: CppnNodeType,
-                    activation_function: Box<ActivationFunction>)
-                    -> CppnNodeIndex {
-        let idx = CppnNodeIndex(self.nodes.len());
-        self.nodes.push(CppnNode {
-            node_type: node_type,
-            activation_function: activation_function,
-            input_links: Vec::new(),
-            output_links: Vec::new(),
-        });
-        return idx;
-    }
-
-    /// Returns a random link between two unconnected nodes, which would not introduce
-    /// a cycle. Return None is no such exists.
-    pub fn find_random_unconnected_link_no_cycle<R: Rng>
-        (&self,
-         rng: &mut R)
-         -> Option<(CppnNodeIndex, CppnNodeIndex)> {
-
-        let n = self.nodes.len();
-
-        let idx = &|i, j| i * n + j;
-
-        let mut adj_matrix = FixedBitSet::with_capacity(n * n);
-
-        // Build up a binary, undirected adjacency matrix of the graph.
-        // Every unset bit in the adj_matrix will be a potential link.
-        for (i, node) in self.nodes.iter().enumerate() {
-            for link in node.output_links.iter() {
-                let j = link.node_idx.index();
-                adj_matrix.insert(idx(i, j));
-                // include the link of reverse direction, because this would
-                // create a cycle anyway.
-                adj_matrix.insert(idx(j, i));
-            }
-        }
-
-        let adj_matrix = adj_matrix;
-
-        // We now test all potential links of every node in the graph, if it would
-        // introduce a cycle. For that, we shuffle the node indices (`node_order`).
-        // in random order.
-        let mut node_order: Vec<_> = (0..n).into_iter().collect();
-        let mut edge_order: Vec<_> = (0..n).into_iter().collect();
-        rng.shuffle(&mut node_order);
-
-        let node_order = node_order;
-
-        for &i in &node_order {
-            rng.shuffle(&mut edge_order);
-            for &j in &edge_order {
-                if i != j && !adj_matrix.contains(idx(i, j)) {
-                    // The link (i, j) neither is reflexive, nor exists.
-                    let ni = CppnNodeIndex(i);
-                    let nj = CppnNodeIndex(j);
-                    if self.valid_link(ni, nj).is_ok() && !self.link_would_cycle(ni, nj) {
-                        // If the link is valid and does not create a cycle, we are done!
-                        return Some((ni, nj));
-                    }
-                }
-            }
-        }
-
-        return None;
-    }
-
-    /// Returns true if the introduction of this directed link would lead towards a cycle.
-    pub fn link_would_cycle(&self,
-                            source_node_idx: CppnNodeIndex,
-                            target_node_idx: CppnNodeIndex)
-                            -> bool {
-        if source_node_idx == target_node_idx {
-            return true;
-        }
-
-        let mut seen_nodes = FixedBitSet::with_capacity(self.nodes.len());
-        let mut nodes_to_visit = Vec::new();
-
-        // We start at the target node and iterate all paths from there. If we hit the source node,
-        // we found a cycle. Otherwise not.
-        let start = target_node_idx.index();
-
-        // We are looking for a path to this node.
-        let path_to = source_node_idx.index();
-
-        nodes_to_visit.push(start);
-        seen_nodes.insert(start);
-
-        while let Some(visit_node) = nodes_to_visit.pop() {
-            for out_link in &self.nodes[visit_node].output_links {
-                let next_node = out_link.node_idx.index();
-                if !seen_nodes.contains(next_node) {
-                    if next_node == path_to {
-                        // We found a path to `path_to`. We have found a cycle.
-                        return true;
-                    }
-
-                    seen_nodes.insert(next_node);
-                    nodes_to_visit.push(next_node)
-                }
-            }
-        }
-
-        // We haven't found a cycle.
-        return false;
-    }
-
-    // Check if the link is valid. Doesn't check for cycles.
-    pub fn valid_link(&self,
-                      source_node_idx: CppnNodeIndex,
-                      target_node_idx: CppnNodeIndex)
-                      -> Result<(), &'static str> {
-        if source_node_idx == target_node_idx {
-            return Err("Loops are not allowed");
-        }
-
-        match self.nodes[source_node_idx.index()].node_type {
-            CppnNodeType::Output => {
-                return Err("Cannot have an outgoing connection from Output node")
-            }
-            _ => {}
-        }
-
-        match self.nodes[target_node_idx.index()].node_type {
-            CppnNodeType::Input | CppnNodeType::Bias => {
-                return Err("Cannot have an incoming connection to Input/Bias node");
-            }
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    // Note: Doesn't check for cycles (except in the simple reflexive case).
-    pub fn add_link(&mut self,
-                    source_node_idx: CppnNodeIndex,
-                    target_node_idx: CppnNodeIndex,
-                    weight: f64) {
-        if let Err(err) = self.valid_link(source_node_idx, target_node_idx) {
-            panic!(err);
-        }
-
-        self.nodes[source_node_idx.index()].output_links.push(CppnLink {
-            node_idx: target_node_idx,
-            weight: weight,
-        });
-
-        self.nodes[target_node_idx.index()].input_links.push(CppnLink {
-            node_idx: source_node_idx,
-            weight: weight,
-        });
-    }
-}
+pub type CppnLink = Link<f64>;
+pub type CppnNode = Node<CppnNodeType, Box<ActivationFunction>, f64>;
+pub type CppnGraph = Network<CppnNodeType, Box<ActivationFunction>, f64>;
 
 /// Represents the output value of a CppnNode.
 #[derive(Debug, Copy, Clone)]
@@ -239,7 +73,7 @@ impl CppnState {
                 // fall through.
             }
         }
-        let node = &graph.nodes[node_idx.index()];
+        let node = &graph.nodes()[node_idx.index()];
 
         // Sum the input links
         let input_sum: f64 = match node.node_type {
@@ -260,8 +94,8 @@ impl CppnState {
             }
         };
 
-        // apply activation function on `input_sum`.
-        let output = node.activation_function.calculate(input_sum);
+        // apply activation function on `input_sum` (activation function is stored in `node_data`)
+        let output = node.node_data.calculate(input_sum);
 
         // cache the value. this also resets the InCalculation state.
         self.values[node_idx.index()] = CppnNodeValue::Cached(output);
@@ -283,19 +117,19 @@ impl Cppn {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
-        for (i, node) in graph.nodes.iter().enumerate() {
+        for (i, node) in graph.nodes().iter().enumerate() {
             match node.node_type {
                 CppnNodeType::Input => {
-                    inputs.push(CppnNodeIndex(i));
+                    inputs.push(CppnNodeIndex::new(i));
                 }
                 CppnNodeType::Output => {
-                    outputs.push(CppnNodeIndex(i));
+                    outputs.push(CppnNodeIndex::new(i));
                 }
                 _ => {}
             }
         }
 
-        let state = CppnState::new(graph.nodes.len());
+        let state = CppnState::new(graph.nodes().len());
         Cppn {
             graph: graph,
             inputs: inputs,

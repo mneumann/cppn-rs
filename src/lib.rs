@@ -1,5 +1,6 @@
-extern crate fixedbitset;
+#[cfg(test)]
 extern crate rand;
+extern crate acyclic_network;
 
 pub trait ActivationFunction {
     fn formula(&self) -> &'static str;
