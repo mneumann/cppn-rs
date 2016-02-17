@@ -90,41 +90,50 @@ impl CppnGraph {
         return false;
     }
 
+    // Check if the link is valid. Doesn't check for cycles.
+    fn valid_link(&self,
+                  source_node_idx: CppnNodeIndex,
+                  target_node_idx: CppnNodeIndex)
+                  -> Result<(), &'static str> {
+        if source_node_idx == target_node_idx {
+            return Err("Loops are not allowed");
+        }
+
+        let source_node = &self.nodes[source_node_idx.index()];
+        if let CppnNodeType::Output = source_node.node_type {
+            return Err("Cannot have an outgoing connection from Output node");
+        }
+
+        let target_node = &self.nodes[target_node_idx.index()];
+        if let CppnNodeType::Input = target_node.node_type {
+            return Err("Cannot have an incoming connection to Input node");
+        }
+
+        if let CppnNodeType::Bias = target_node.node_type {
+            return Err("Cannot have an incoming connection to Bias node");
+        }
+
+        Ok(())
+    }
+
     // Note: Doesn't check for cycles (except in the simple reflexive case).
     fn add_link(&mut self,
                 source_node_idx: CppnNodeIndex,
                 target_node_idx: CppnNodeIndex,
                 weight: f64) {
-        if source_node_idx == target_node_idx {
-            panic!("Loops are not allowed");
+        if let Err(err) = self.valid_link(source_node_idx, target_node_idx) {
+            panic!(err);
         }
 
-        {
-            let mut source_node = &mut self.nodes[source_node_idx.index()];
-            if let CppnNodeType::Output = source_node.node_type {
-                panic!("Cannot have an outgoing connection from Output node");
-            }
-            source_node.output_links.push(CppnLink {
-                node_idx: target_node_idx,
-                weight: weight,
-            });
-        }
+        self.nodes[source_node_idx.index()].output_links.push(CppnLink {
+            node_idx: target_node_idx,
+            weight: weight,
+        });
 
-        {
-            let mut target_node = &mut self.nodes[target_node_idx.index()];
-            if let CppnNodeType::Input = target_node.node_type {
-                panic!("Cannot have an incoming connection to Input node");
-            }
-
-            if let CppnNodeType::Bias = target_node.node_type {
-                panic!("Cannot have an incoming connection to Bias node");
-            }
-
-            target_node.input_links.push(CppnLink {
-                node_idx: source_node_idx,
-                weight: weight,
-            });
-        }
+        self.nodes[target_node_idx.index()].input_links.push(CppnLink {
+            node_idx: source_node_idx,
+            weight: weight,
+        });
     }
 }
 
@@ -199,3 +208,35 @@ impl CppnState {
 pub struct Cppn;
 
 impl Cppn {}
+
+
+#[test]
+fn test_cycle() {
+    use super::Identity;
+    let mut g = CppnGraph::new();
+    let i1 = g.add_node(CppnNodeType::Input, Box::new(Identity));
+    let h1 = g.add_node(CppnNodeType::Hidden, Box::new(Identity));
+    let h2 = g.add_node(CppnNodeType::Hidden, Box::new(Identity));
+    assert_eq!(true, g.valid_link(i1, i1).is_err());
+    assert_eq!(true, g.valid_link(h1, h1).is_err());
+
+    assert_eq!(true, g.valid_link(h1, i1).is_err());
+    assert_eq!(Ok(()), g.valid_link(i1, h1));
+    assert_eq!(Ok(()), g.valid_link(i1, h2));
+    assert_eq!(Ok(()), g.valid_link(h1, h2));
+
+    g.add_link(i1, h1, 0.0);
+    assert_eq!(true, g.would_cycle(h1, i1));
+    assert_eq!(false, g.would_cycle(i1, h1));
+    assert_eq!(false, g.would_cycle(i1, h2));
+    assert_eq!(true, g.would_cycle(i1, i1));
+    assert_eq!(false, g.would_cycle(h1, h2));
+    assert_eq!(false, g.would_cycle(h2, h1));
+    assert_eq!(false, g.would_cycle(h2, i1));
+
+    g.add_link(h1, h2, 0.0);
+    assert_eq!(true, g.would_cycle(h2, i1));
+    assert_eq!(true, g.would_cycle(h1, i1));
+    assert_eq!(true, g.would_cycle(h2, h1));
+    assert_eq!(false, g.would_cycle(i1, h2));
+}
