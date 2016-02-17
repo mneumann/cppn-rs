@@ -102,18 +102,18 @@ impl CppnGraph {
             return Err("Loops are not allowed");
         }
 
-        let source_node = &self.nodes[source_node_idx.index()];
-        if let CppnNodeType::Output = source_node.node_type {
-            return Err("Cannot have an outgoing connection from Output node");
+        match self.nodes[source_node_idx.index()].node_type {
+            CppnNodeType::Output => {
+                return Err("Cannot have an outgoing connection from Output node")
+            }
+            _ => {}
         }
 
-        let target_node = &self.nodes[target_node_idx.index()];
-        if let CppnNodeType::Input = target_node.node_type {
-            return Err("Cannot have an incoming connection to Input node");
-        }
-
-        if let CppnNodeType::Bias = target_node.node_type {
-            return Err("Cannot have an incoming connection to Bias node");
+        match self.nodes[target_node_idx.index()].node_type {
+            CppnNodeType::Input | CppnNodeType::Bias => {
+                return Err("Cannot have an incoming connection to Input/Bias node");
+            }
+            _ => {}
         }
 
         Ok(())
