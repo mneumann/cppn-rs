@@ -9,7 +9,7 @@ pub enum CppnNodeType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct CppnNodeIndex(usize);
+pub struct CppnNodeIndex(usize);
 
 impl CppnNodeIndex {
     fn index(&self) -> usize {
@@ -29,19 +29,19 @@ struct CppnNode {
     output_links: Vec<CppnLink>,
 }
 
-struct CppnGraph {
+pub struct CppnGraph {
     nodes: Vec<CppnNode>,
 }
 
 impl CppnGraph {
-    fn new() -> CppnGraph {
+    pub fn new() -> CppnGraph {
         CppnGraph { nodes: Vec::new() }
     }
 
-    fn add_node(&mut self,
-                node_type: CppnNodeType,
-                activation_function: Box<ActivationFunction>)
-                -> CppnNodeIndex {
+    pub fn add_node(&mut self,
+                    node_type: CppnNodeType,
+                    activation_function: Box<ActivationFunction>)
+                    -> CppnNodeIndex {
         let idx = CppnNodeIndex(self.nodes.len());
         self.nodes.push(CppnNode {
             node_type: node_type,
@@ -53,7 +53,10 @@ impl CppnGraph {
     }
 
     // Returns true if the introduction of this directed link would lead towards a cycle.
-    fn would_cycle(&self, source_node_idx: CppnNodeIndex, target_node_idx: CppnNodeIndex) -> bool {
+    pub fn would_cycle(&self,
+                       source_node_idx: CppnNodeIndex,
+                       target_node_idx: CppnNodeIndex)
+                       -> bool {
         if source_node_idx == target_node_idx {
             return true;
         }
@@ -91,10 +94,10 @@ impl CppnGraph {
     }
 
     // Check if the link is valid. Doesn't check for cycles.
-    fn valid_link(&self,
-                  source_node_idx: CppnNodeIndex,
-                  target_node_idx: CppnNodeIndex)
-                  -> Result<(), &'static str> {
+    pub fn valid_link(&self,
+                      source_node_idx: CppnNodeIndex,
+                      target_node_idx: CppnNodeIndex)
+                      -> Result<(), &'static str> {
         if source_node_idx == target_node_idx {
             return Err("Loops are not allowed");
         }
@@ -117,10 +120,10 @@ impl CppnGraph {
     }
 
     // Note: Doesn't check for cycles (except in the simple reflexive case).
-    fn add_link(&mut self,
-                source_node_idx: CppnNodeIndex,
-                target_node_idx: CppnNodeIndex,
-                weight: f64) {
+    pub fn add_link(&mut self,
+                    source_node_idx: CppnNodeIndex,
+                    target_node_idx: CppnNodeIndex,
+                    weight: f64) {
         if let Err(err) = self.valid_link(source_node_idx, target_node_idx) {
             panic!(err);
         }
@@ -150,6 +153,14 @@ struct CppnState {
 }
 
 impl CppnState {
+    fn new(n: usize) -> CppnState {
+        CppnState { values: (0..n).map(|_| CppnNodeValue::None).collect() }
+    }
+
+    fn set(&mut self, node_idx: CppnNodeIndex, value: f64) {
+        self.values[node_idx.index()] = CppnNodeValue::Cached(value);
+    }
+
     fn reset(&mut self) {
         for value in self.values.iter_mut() {
             *value = CppnNodeValue::None;
@@ -205,9 +216,62 @@ impl CppnState {
 }
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn;
+pub struct Cppn {
+    graph: CppnGraph,
+    inputs: Vec<CppnNodeIndex>,
+    outputs: Vec<CppnNodeIndex>,
+    state: CppnState,
+}
 
-impl Cppn {}
+impl Cppn {
+    pub fn new(graph: CppnGraph) -> Cppn {
+        let mut inputs = Vec::new();
+        let mut outputs = Vec::new();
+
+        for (i, node) in graph.nodes.iter().enumerate() {
+            match node.node_type {
+                CppnNodeType::Input => {
+                    inputs.push(CppnNodeIndex(i));
+                }
+                CppnNodeType::Output => {
+                    outputs.push(CppnNodeIndex(i));
+                }
+                _ => {}
+            }
+        }
+
+        let state = CppnState::new(graph.nodes.len());
+        Cppn {
+            graph: graph,
+            inputs: inputs,
+            outputs: outputs,
+            state: state,
+        }
+    }
+
+    /// Calculate all outputs
+    pub fn calculate(&mut self, inputs: &[&[f64]]) -> Vec<f64> {
+        let mut state = &mut self.state;
+
+        state.reset();
+
+        // assign all inputs
+        let mut i = 0;
+        for input_list in inputs.iter() {
+            for &input in input_list.iter() {
+                state.set(self.inputs[i], input);
+                i += 1;
+            }
+        }
+        assert!(i == self.inputs.len());
+
+        let graph = &self.graph;
+        self.outputs
+            .iter()
+            .map(|&node_idx| state.calculate_output_of_node(graph, node_idx))
+            .collect()
+    }
+}
 
 
 #[test]
@@ -239,4 +303,23 @@ fn test_cycle() {
     assert_eq!(true, g.would_cycle(h1, i1));
     assert_eq!(true, g.would_cycle(h2, h1));
     assert_eq!(false, g.would_cycle(i1, h2));
+}
+
+#[test]
+fn test_simple_cppn() {
+    use super::Identity;
+    use super::bipolar::Linear;
+
+    let mut g = CppnGraph::new();
+    let i1 = g.add_node(CppnNodeType::Input, Box::new(Identity));
+    let h1 = g.add_node(CppnNodeType::Hidden, Box::new(Linear));
+    let o1 = g.add_node(CppnNodeType::Output, Box::new(Identity));
+    g.add_link(i1, h1, 0.5);
+    g.add_link(h1, o1, 1.0);
+
+    let mut cppn = Cppn::new(g);
+
+    assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
+    assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
+    assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
 }
