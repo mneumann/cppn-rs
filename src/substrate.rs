@@ -85,6 +85,10 @@ impl<P: Position, T> Substrate<P, T> {
         Substrate { nodes: Vec::new() }
     }
 
+    pub fn nodes(&self) -> &[Node<P, T>] {
+        &self.nodes
+    }
+
     pub fn add_node(&mut self, position: P, data: T) {
         self.nodes.push(Node {
             position: position,
