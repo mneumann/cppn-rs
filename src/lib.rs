@@ -1,4 +1,5 @@
 extern crate fixedbitset;
+extern crate rand;
 
 pub trait ActivationFunction {
     fn formula(&self) -> &'static str;

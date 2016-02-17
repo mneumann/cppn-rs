@@ -1,5 +1,6 @@
 use super::ActivationFunction;
 use fixedbitset::FixedBitSet;
+use rand::Rng;
 
 pub enum CppnNodeType {
     Bias,
@@ -52,7 +53,61 @@ impl CppnGraph {
         return idx;
     }
 
-    // Returns true if the introduction of this directed link would lead towards a cycle.
+    /// Returns a random link between two unconnected nodes, which would not introduce
+    /// a cycle. Return None is no such exists.
+    pub fn find_random_unconnected_link_no_cycle<R: Rng>
+        (&self,
+         rng: &mut R)
+         -> Option<(CppnNodeIndex, CppnNodeIndex)> {
+
+        let n = self.nodes.len();
+
+        let idx = &|i, j| i * n + j;
+
+        let mut adj_matrix = FixedBitSet::with_capacity(n * n);
+
+        // Build up a binary, undirected adjacency matrix of the graph.
+        // Every unset bit in the adj_matrix will be a potential link.
+        for (i, node) in self.nodes.iter().enumerate() {
+            for link in node.output_links.iter() {
+                let j = link.node_idx.index();
+                adj_matrix.insert(idx(i, j));
+                // include the link of reverse direction, because this would
+                // create a cycle anyway.
+                adj_matrix.insert(idx(j, i));
+            }
+        }
+
+        let adj_matrix = adj_matrix;
+
+        // We now test all potential links of every node in the graph, if it would
+        // introduce a cycle. For that, we shuffle the node indices (`node_order`).
+        // in random order.
+        let mut node_order: Vec<_> = (0..n).into_iter().collect();
+        let mut edge_order: Vec<_> = (0..n).into_iter().collect();
+        rng.shuffle(&mut node_order);
+
+        let node_order = node_order;
+
+        for &i in &node_order {
+            rng.shuffle(&mut edge_order);
+            for &j in &edge_order {
+                if i != j && !adj_matrix.contains(idx(i, j)) {
+                    // The link (i, j) neither is reflexive, nor exists.
+                    let ni = CppnNodeIndex(i);
+                    let nj = CppnNodeIndex(j);
+                    if self.valid_link(ni, nj).is_ok() && !self.link_would_cycle(ni, nj) {
+                        // If the link is valid and does not create a cycle, we are done!
+                        return Some((ni, nj));
+                    }
+                }
+            }
+        }
+
+        return None;
+    }
+
+    /// Returns true if the introduction of this directed link would lead towards a cycle.
     pub fn link_would_cycle(&self,
                             source_node_idx: CppnNodeIndex,
                             target_node_idx: CppnNodeIndex)
@@ -322,4 +377,32 @@ fn test_simple_cppn() {
     assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
     assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
     assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
+}
+
+
+#[test]
+fn test_find_random_unconnected_link_no_cycle() {
+    use rand;
+    use super::Identity;
+
+    let mut g = CppnGraph::new();
+    let i1 = g.add_node(CppnNodeType::Input, Box::new(Identity));
+    let o1 = g.add_node(CppnNodeType::Output, Box::new(Identity));
+    let o2 = g.add_node(CppnNodeType::Output, Box::new(Identity));
+
+    let mut rng = rand::thread_rng();
+
+    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+    assert_eq!(true, link.is_some());
+    let l = link.unwrap();
+    assert!((i1, o1) == l || (i1, o2) == l);
+
+    g.add_link(i1, o2, 0.0);
+    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+    assert_eq!(true, link.is_some());
+    assert_eq!((i1, o1), link.unwrap());
+
+    g.add_link(i1, o1, 0.0);
+    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+    assert_eq!(false, link.is_some());
 }

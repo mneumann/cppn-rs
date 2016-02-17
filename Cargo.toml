@@ -12,3 +12,4 @@ include = ["src/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 [dependencies]
 
 fixedbitset = "0.1.0"
+rand = "0.3"
