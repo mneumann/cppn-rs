@@ -24,6 +24,8 @@ pub struct LinkIterator<'a, P: Position + 'a, T: 'a> {
 pub struct Link<'a, P: Position + 'a, T: 'a> {
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
+    pub source_idx: usize,
+    pub target_idx: usize,
     pub weight: f64,
     pub distance: f64,
 }
@@ -64,13 +66,16 @@ impl<'a, P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, P, T> {
             assert!(outputs_from_cppn.len() == 1);
             let weight = outputs_from_cppn[0];
 
-            self.inner += 1;
-            return Some(Link {
+            let link = Link {
                 source: source,
                 target: target,
+                source_idx: self.inner,
+                target_idx: self.outer,
                 weight: weight,
                 distance: distance,
-            });
+            };
+            self.inner += 1;
+            return Some(link);
         }
     }
 }
