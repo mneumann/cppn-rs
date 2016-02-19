@@ -1,4 +1,4 @@
-use super::ActivationFunction;
+use activation_function::ActivationFunction;
 
 #[inline(always)]
 fn bipolar_debug_check(f: f64) -> f64 {

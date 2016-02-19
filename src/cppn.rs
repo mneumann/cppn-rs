@@ -1,4 +1,4 @@
-use super::ActivationFunction;
+use activation_function::ActivationFunction;
 use acyclic_network::{NodeType, Network, Link, Node};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 

@@ -1,6 +1,6 @@
 use position::Position;
 use cppn::Cppn;
-use super::ActivationFunction;
+use activation_function::ActivationFunction;
 
 /// Represents a node in the substrate. `T` is an arbitrary
 /// type used to store additional information about that node.
