@@ -17,58 +17,49 @@ fn bipolar_clip(f: f64) -> f64 {
     }
 }
 
-pub struct Linear;
-pub struct Gaussian;
-pub struct Sigmoid;
-pub struct Sine;
+#[derive(Debug, Clone, Copy)]
+pub enum BipolarActivationFunction {
+    Identity,
+    Linear,
+    Gaussian,
+    Sigmoid,
+    Sine,
+}
 
-impl ActivationFunction for Linear {
-    fn formula(&self) -> &'static str {
-        "y = max(-1.0, min(1.0, x))"
+impl ActivationFunction for BipolarActivationFunction {
+    fn calculate(&self, x: f64) -> f64 {
+        match *self {
+            BipolarActivationFunction::Identity => x,
+            BipolarActivationFunction::Linear => bipolar_debug_check(bipolar_clip(x)),
+            BipolarActivationFunction::Gaussian => {
+                bipolar_debug_check(2.0 * (-(x * 2.5).powi(2)).exp() - 1.0)
+            }
+            BipolarActivationFunction::Sigmoid => {
+                bipolar_debug_check((2.0 / (1.0 + (-4.9 * x).exp())) - 1.0)
+            }
+            BipolarActivationFunction::Sine => bipolar_debug_check((2.0 * x).sin()),
+        }
     }
 
-    fn calculate(&self, x: f64) -> f64 {
-        bipolar_debug_check(bipolar_clip(x))
+    fn formula(&self) -> &'static str {
+        match *self {
+            BipolarActivationFunction::Identity => "y = x",
+            BipolarActivationFunction::Linear => "y = max(-1.0, min(1.0, x))",
+            BipolarActivationFunction::Gaussian => "y = 2.0 * exp(-(x * 2.5)^2.0) - 1.0",
+            BipolarActivationFunction::Sigmoid => "y = 2.0 / (1.0 + exp(-4.9 * x)) - 1.0",
+            BipolarActivationFunction::Sine => "y = sin(2.0 * x)",
+        }
     }
 }
 
-impl ActivationFunction for Gaussian {
-    fn formula(&self) -> &'static str {
-        "y = 2.0 * exp(-(x * 2.5)^2.0) - 1.0"
-    }
-
-    fn calculate(&self, x: f64) -> f64 {
-        bipolar_debug_check(2.0 * (-(x * 2.5).powi(2)).exp() - 1.0)
-    }
-}
-
-impl ActivationFunction for Sigmoid {
-    fn formula(&self) -> &'static str {
-        "y = 2.0 / (1.0 + exp(-4.9 * x)) - 1.0"
-    }
-
-    fn calculate(&self, x: f64) -> f64 {
-        bipolar_debug_check((2.0 / (1.0 + (-4.9 * x).exp())) - 1.0)
-    }
-}
-
-impl ActivationFunction for Sine {
-    fn formula(&self) -> &'static str {
-        "y = sin(2.0 * x)"
-    }
-
-    fn calculate(&self, x: f64) -> f64 {
-        bipolar_debug_check((2.0 * x).sin())
-    }
-}
 
 #[test]
-fn test_linear() {
-    assert_eq!(0.0, Linear.calculate(0.0));
-    assert_eq!(1.0, Linear.calculate(1.0));
-    assert_eq!(-1.0, Linear.calculate(-1.0));
-    assert_eq!(0.5, Linear.calculate(0.5));
-    assert_eq!(-0.5, Linear.calculate(-0.5));
-    assert_eq!(1.0, Linear.calculate(1.1));
-    assert_eq!(-1.0, Linear.calculate(-1.1));
+fn test_bipolar_linear() {
+    assert_eq!(0.0, BipolarActivationFunction::Linear.calculate(0.0));
+    assert_eq!(1.0, BipolarActivationFunction::Linear.calculate(1.0));
+    assert_eq!(-1.0, BipolarActivationFunction::Linear.calculate(-1.0));
+    assert_eq!(0.5, BipolarActivationFunction::Linear.calculate(0.5));
+    assert_eq!(-0.5, BipolarActivationFunction::Linear.calculate(-0.5));
+    assert_eq!(1.0, BipolarActivationFunction::Linear.calculate(1.1));
+    assert_eq!(-1.0, BipolarActivationFunction::Linear.calculate(-1.1));
 }

@@ -1,5 +1,6 @@
 use position::Position;
 use cppn::Cppn;
+use super::ActivationFunction;
 
 /// Represents a node in the substrate. `T` is an arbitrary
 /// type used to store additional information about that node.
@@ -12,9 +13,9 @@ pub struct Substrate<P: Position, T> {
     nodes: Vec<Node<P, T>>,
 }
 
-pub struct LinkIterator<'a, P: Position + 'a, T: 'a> {
+pub struct LinkIterator<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a> {
     nodes: &'a [Node<P, T>],
-    cppn: &'a mut Cppn,
+    cppn: &'a mut Cppn<A>,
     inner: usize,
     outer: usize,
     max_distance: Option<f64>,
@@ -30,7 +31,7 @@ pub struct Link<'a, P: Position + 'a, T: 'a> {
     pub distance: f64,
 }
 
-impl<'a, P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, P, T> {
+impl<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, A, P, T> {
     type Item = Link<'a, P, T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -97,10 +98,12 @@ impl<P: Position, T> Substrate<P, T> {
     }
 
     /// Iterate over all produced links of Cppn.
-    pub fn iter_links<'a>(&'a self,
-                          cppn: &'a mut Cppn,
-                          max_distance: Option<f64>)
-                          -> LinkIterator<'a, P, T> {
+    pub fn iter_links<'a, A>(&'a self,
+                             cppn: &'a mut Cppn<A>,
+                             max_distance: Option<f64>)
+                             -> LinkIterator<'a, A, P, T>
+        where A: ActivationFunction
+    {
         LinkIterator {
             nodes: &self.nodes,
             cppn: cppn,
