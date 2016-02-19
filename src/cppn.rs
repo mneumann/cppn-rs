@@ -3,14 +3,14 @@ use acyclic_network::{NodeType, Network, Link, Node};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 
 #[derive(Clone, Debug)]
-pub enum CppnNodeType {
+pub enum CppnNodeType<A: ActivationFunction> {
     Bias,
     Input,
     Output,
-    Hidden,
+    Hidden(A),
 }
 
-impl NodeType for CppnNodeType {
+impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
     fn accept_incoming_links(&self) -> bool {
         match *self {
             CppnNodeType::Input | CppnNodeType::Bias => false,
@@ -27,8 +27,8 @@ impl NodeType for CppnNodeType {
 }
 
 pub type CppnLink = Link<f64>;
-pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType, A, f64>;
-pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType, A, f64>;
+pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>, f64>;
+pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType<A>, f64>;
 
 /// Represents the output value of a CppnNode.
 #[derive(Debug, Copy, Clone)]
@@ -86,7 +86,7 @@ impl CppnState {
                 debug_assert!(node.input_links.is_empty());
                 panic!("No input set for Input node");
             }
-            CppnNodeType::Output | CppnNodeType::Hidden => {
+            CppnNodeType::Output | CppnNodeType::Hidden(_) => {
                 // Mark this node as being processes. If we hit such a node during a recursive call
                 // we have a cycle.
                 self.values[node_idx.index()] = CppnNodeValue::InCalculation;
@@ -98,8 +98,12 @@ impl CppnState {
             }
         };
 
-        // apply activation function on `input_sum` (activation function is stored in `node_data`)
-        let output = node.node_data.calculate(input_sum);
+        // apply activation function on `input_sum` if available
+        let output = if let CppnNodeType::Hidden(ref activation_function) = node.node_type {
+            activation_function.calculate(input_sum)
+        } else {
+            input_sum
+        };
 
         // cache the value. this also resets the InCalculation state.
         self.values[node_idx.index()] = CppnNodeValue::Cached(output);
@@ -169,11 +173,11 @@ impl<A: ActivationFunction> Cppn<A> {
 
 #[test]
 fn test_cycle() {
-    use super::bipolar::BipolarActivationFunction as A;
+    use super::bipolar::BipolarActivationFunction as AF;
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input, A::Identity);
-    let h1 = g.add_node(CppnNodeType::Hidden, A::Identity);
-    let h2 = g.add_node(CppnNodeType::Hidden, A::Identity);
+    let i1 = g.add_node(CppnNodeType::Input);
+    let h1 = g.add_node(CppnNodeType::Hidden(AF::Identity));
+    let h2 = g.add_node(CppnNodeType::Hidden(AF::Identity));
     assert_eq!(true, g.valid_link(i1, i1).is_err());
     assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -200,12 +204,12 @@ fn test_cycle() {
 
 #[test]
 fn test_simple_cppn() {
-    use super::bipolar::BipolarActivationFunction as A;
+    use super::bipolar::BipolarActivationFunction as AF;
 
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input, A::Identity);
-    let h1 = g.add_node(CppnNodeType::Hidden, A::Linear);
-    let o1 = g.add_node(CppnNodeType::Output, A::Identity);
+    let i1 = g.add_node(CppnNodeType::Input);
+    let h1 = g.add_node(CppnNodeType::Hidden(AF::Linear));
+    let o1 = g.add_node(CppnNodeType::Output);
     g.add_link(i1, h1, 0.5);
     g.add_link(h1, o1, 1.0);
 
@@ -220,12 +224,12 @@ fn test_simple_cppn() {
 #[test]
 fn test_find_random_unconnected_link_no_cycle() {
     use rand;
-    use super::bipolar::BipolarActivationFunction as A;
+    use super::bipolar::BipolarActivationFunction as AF;
 
-    let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input, A::Identity);
-    let o1 = g.add_node(CppnNodeType::Output, A::Identity);
-    let o2 = g.add_node(CppnNodeType::Output, A::Identity);
+    let mut g = CppnGraph::<AF>::new();
+    let i1 = g.add_node(CppnNodeType::Input);
+    let o1 = g.add_node(CppnNodeType::Output);
+    let o2 = g.add_node(CppnNodeType::Output);
 
     let mut rng = rand::thread_rng();
 
