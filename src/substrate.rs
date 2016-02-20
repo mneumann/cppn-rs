@@ -15,7 +15,7 @@ pub struct Substrate<P: Position, T> {
 
 pub struct LinkIterator<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a> {
     nodes: &'a [Node<P, T>],
-    cppn: &'a mut Cppn<A>,
+    cppn: &'a mut Cppn<'a, A>,
     inner: usize,
     outer: usize,
     max_distance: Option<f64>,
@@ -99,7 +99,7 @@ impl<P: Position, T> Substrate<P, T> {
 
     /// Iterate over all produced links of Cppn.
     pub fn iter_links<'a, A>(&'a self,
-                             cppn: &'a mut Cppn<A>,
+                             cppn: &'a mut Cppn<'a, A>,
                              max_distance: Option<f64>)
                              -> LinkIterator<'a, A, P, T>
         where A: ActivationFunction

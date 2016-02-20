@@ -113,15 +113,15 @@ impl CppnState {
 }
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn<A: ActivationFunction> {
-    graph: CppnGraph<A>,
+pub struct Cppn<'a, A: ActivationFunction + 'a> {
+    graph: &'a CppnGraph<A>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
     state: CppnState,
 }
 
-impl<A: ActivationFunction> Cppn<A> {
-    pub fn new(graph: CppnGraph<A>) -> Cppn<A> {
+impl<'a, A: ActivationFunction> Cppn<'a, A> {
+    pub fn new(graph: &'a CppnGraph<A>) -> Cppn<'a, A> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
@@ -213,7 +213,7 @@ fn test_simple_cppn() {
     g.add_link(i1, h1, 0.5);
     g.add_link(h1, o1, 1.0);
 
-    let mut cppn = Cppn::new(g);
+    let mut cppn = Cppn::new(&g);
 
     assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
     assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
