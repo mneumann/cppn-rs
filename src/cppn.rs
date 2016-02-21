@@ -99,7 +99,7 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
             };
 
             // propagate output signal, to outgoing links.
-            for out_link in &node.output_links {
+            for out_link in &node.forward_links {
                 let out_node = out_link.node_idx.index();
                 self.incoming_signals[out_node] += out_link.weight * output;
                 if !seen.contains(out_node) {
