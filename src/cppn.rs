@@ -1,11 +1,17 @@
 use activation_function::ActivationFunction;
-use acyclic_network::{NodeType, Network, Node};
+use acyclic_network::{NodeType, Network};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
+pub trait CppnNodeType: NodeType + ActivationFunction {
+    fn is_input_node(&self) -> bool;
+    fn is_output_node(&self) -> bool;
+}
+
+/// A concrete implementation of a CppnNodeType.
 #[derive(Clone, Debug)]
-pub enum CppnNodeType<A: ActivationFunction> {
+pub enum CppnNode<A: ActivationFunction> {
     Bias,
     Input,
     Output,
@@ -13,31 +19,63 @@ pub enum CppnNodeType<A: ActivationFunction> {
 }
 
 const CPPN_BIAS_WEIGHT: f64 = 1.0;
+impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
+    fn formula(&self) -> &'static str {
+        // XXX
+        ""
+    }
 
-impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
+    fn calculate(&self, input: f64) -> f64 {
+        match *self {
+            CppnNode::Hidden(ref activation_function) => {
+                // apply activation function on `input`
+                activation_function.calculate(input)
+            }
+            CppnNode::Input | CppnNode::Output => {
+                // Simply pass on the input signal.
+                input
+            }
+            CppnNode::Bias => CPPN_BIAS_WEIGHT,
+        }
+    }
+}
+
+impl<A: ActivationFunction> NodeType for CppnNode<A> {
     fn accept_incoming_links(&self) -> bool {
         match *self {
-            CppnNodeType::Input | CppnNodeType::Bias => false,
+            CppnNode::Input | CppnNode::Bias => false,
             _ => true,
         }
     }
 
     fn accept_outgoing_links(&self) -> bool {
         match *self {
-            CppnNodeType::Output => false,
+            CppnNode::Output => false,
             _ => true,
         }
     }
 }
 
-pub type CppnNode<A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> =
-    Node<CppnNodeType<A>, EXTID>;
-pub type CppnGraph<A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> =
-    Network<CppnNodeType<A>, f64, EXTID>;
+impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
+    fn is_input_node(&self) -> bool {
+        match *self {
+            CppnNode::Input => true,
+            _ => false,
+        }
+    }
+    fn is_output_node(&self) -> bool {
+        match *self {
+            CppnNode::Output => true,
+            _ => false,
+        }
+    }
+}
+
+pub type CppnGraph<N: CppnNodeType, EXTID: Copy + Debug + Send + Sized> = Network<N, f64, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn<'a, A: ActivationFunction + 'a, EXTID: Copy + Debug + Send + Sized + 'a> {
-    graph: &'a CppnGraph<A, EXTID>,
+pub struct Cppn<'a, N: CppnNodeType + 'a, EXTID: Copy + Debug + Send + Sized + 'a> {
+    graph: &'a CppnGraph<N, EXTID>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
 
@@ -47,20 +85,17 @@ pub struct Cppn<'a, A: ActivationFunction + 'a, EXTID: Copy + Debug + Send + Siz
     incoming_signals: Vec<f64>,
 }
 
-impl<'a, A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> Cppn<'a, A, EXTID> {
-    pub fn new(graph: &'a CppnGraph<A, EXTID>) -> Cppn<'a, A, EXTID> {
+impl<'a, N: CppnNodeType, EXTID: Copy + Debug + Send + Sized> Cppn<'a, N, EXTID> {
+    pub fn new(graph: &'a CppnGraph<N, EXTID>) -> Cppn<'a, N, EXTID> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
         graph.each_node_with_index(|node, index| {
-            match *node.node_type() {
-                CppnNodeType::Input => {
-                    inputs.push(index);
-                }
-                CppnNodeType::Output => {
-                    outputs.push(index);
-                }
-                _ => {}
+            if node.node_type().is_input_node() {
+                inputs.push(index);
+            }
+            if node.node_type().is_output_node() {
+                outputs.push(index);
             }
         });
 
@@ -87,17 +122,8 @@ impl<'a, A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> Cppn<'a, A, 
     fn propagate_signals(&mut self, mut nodes: Vec<CppnNodeIndex>, mut seen: FixedBitSet) {
         while let Some(node_idx) = nodes.pop() {
             let input = self.incoming_signals[node_idx.index()];
-            let output = match *self.graph.node(node_idx).node_type() {
-                CppnNodeType::Hidden(ref activation_function) => {
-                    // apply activation function on `input`
-                    activation_function.calculate(input)
-                }
-                CppnNodeType::Input | CppnNodeType::Output => {
-                    // Simply pass on the input signal.
-                    input
-                }
-                CppnNodeType::Bias => CPPN_BIAS_WEIGHT,
-            };
+            let output = self.graph.node(node_idx).node_type().calculate(input);
+
 
             // propagate output signal to outgoing links.
             self.graph.each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
@@ -142,14 +168,13 @@ impl<'a, A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> Cppn<'a, A, 
     }
 }
 
-
 #[test]
 fn test_cycle() {
     use super::bipolar::BipolarActivationFunction as AF;
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input, ());
-    let h1 = g.add_node(CppnNodeType::Hidden(AF::Identity), ());
-    let h2 = g.add_node(CppnNodeType::Hidden(AF::Identity), ());
+    let i1 = g.add_node(CppnNode::Input, ());
+    let h1 = g.add_node(CppnNode::Hidden(AF::Identity), ());
+    let h2 = g.add_node(CppnNode::Hidden(AF::Identity), ());
     assert_eq!(true, g.valid_link(i1, i1).is_err());
     assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -179,9 +204,9 @@ fn test_simple_cppn() {
     use super::bipolar::BipolarActivationFunction as AF;
 
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input, ());
-    let h1 = g.add_node(CppnNodeType::Hidden(AF::Linear), ());
-    let o1 = g.add_node(CppnNodeType::Output, ());
+    let i1 = g.add_node(CppnNode::Input, ());
+    let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ());
+    let o1 = g.add_node(CppnNode::Output, ());
     g.add_link(i1, h1, 0.5);
     g.add_link(h1, o1, 1.0);
 
@@ -192,16 +217,15 @@ fn test_simple_cppn() {
     assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
 }
 
-
 #[test]
 fn test_find_random_unconnected_link_no_cycle() {
     use rand;
     use super::bipolar::BipolarActivationFunction as AF;
 
-    let mut g = CppnGraph::<AF, ()>::new();
-    let i1 = g.add_node(CppnNodeType::Input, ());
-    let o1 = g.add_node(CppnNodeType::Output, ());
-    let o2 = g.add_node(CppnNodeType::Output, ());
+    let mut g = CppnGraph::<CppnNode<AF>, ()>::new();
+    let i1 = g.add_node(CppnNode::Input, ());
+    let o1 = g.add_node(CppnNode::Output, ());
+    let o2 = g.add_node(CppnNode::Output, ());
 
     let mut rng = rand::thread_rng();
 

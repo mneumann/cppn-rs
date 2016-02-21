@@ -1,6 +1,5 @@
 use position::Position;
-use cppn::Cppn;
-use activation_function::ActivationFunction;
+use cppn::{Cppn, CppnNodeType};
 use std::fmt::Debug;
 
 /// Represents a node in the substrate. `T` is an arbitrary
@@ -15,13 +14,13 @@ pub struct Substrate<P: Position, T> {
 }
 
 pub struct LinkIterator<'a,
-                        A: ActivationFunction + 'a,
+                        N: CppnNodeType + 'a,
                         P: Position + 'a,
                         T: 'a,
                         EXTID: Copy + Debug + Send + Sized + 'a>
 {
     nodes: &'a [Node<P, T>],
-    cppn: &'a mut Cppn<'a, A, EXTID>,
+    cppn: &'a mut Cppn<'a, N, EXTID>,
     inner: usize,
     outer: usize,
     max_distance: Option<f64>,
@@ -37,7 +36,7 @@ pub struct Link<'a, P: Position + 'a, T: 'a> {
     pub distance: f64,
 }
 
-impl<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Send + Sized + 'a> Iterator for LinkIterator<'a, A, P, T, EXTID> {
+impl<'a, N: CppnNodeType + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Send + Sized + 'a> Iterator for LinkIterator<'a, N, P, T, EXTID> {
     type Item = Link<'a, P, T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -104,12 +103,12 @@ impl<P: Position, T> Substrate<P, T> {
     }
 
     /// Iterate over all produced links of Cppn.
-    pub fn iter_links<'a, A, EXTID>(&'a self,
-                                    cppn: &'a mut Cppn<'a, A, EXTID>,
+    pub fn iter_links<'a, N, EXTID>(&'a self,
+                                    cppn: &'a mut Cppn<'a, N, EXTID>,
                                     max_distance: Option<f64>)
-                                    -> LinkIterator<'a, A, P, T, EXTID>
-        where A: ActivationFunction,
-              EXTID: Copy + Debug + Send + Sized + 'a
+                                    -> LinkIterator<'a, N, P, T, EXTID>
+        where N: CppnNodeType,
+              EXTID: Copy + Debug + Send + Sized
     {
         LinkIterator {
             nodes: &self.nodes,
