@@ -1,5 +1,5 @@
 use activation_function::ActivationFunction;
-use acyclic_network::{NodeType, Network, Link, Node};
+use acyclic_network::{NodeType, Network, Node};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
 
@@ -29,7 +29,6 @@ impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
     }
 }
 
-pub type CppnLink = Link<f64>;
 pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>, f64>;
 pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType<A>, f64>;
 
@@ -51,7 +50,7 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
         let mut outputs = Vec::new();
 
         for (i, node) in graph.nodes().iter().enumerate() {
-            match node.node_type {
+            match *node.node_type() {
                 CppnNodeType::Input => {
                     inputs.push(CppnNodeIndex::new(i));
                 }
@@ -86,7 +85,7 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
         while let Some(node_idx) = nodes.pop() {
             let node = &self.graph.nodes()[node_idx.index()];
             let input = self.incoming_signals[node_idx.index()];
-            let output = match node.node_type {
+            let output = match *node.node_type() {
                 CppnNodeType::Hidden(ref activation_function) => {
                     // apply activation function on `input`
                     activation_function.calculate(input)
@@ -98,15 +97,15 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
                 CppnNodeType::Bias => CPPN_BIAS_WEIGHT,
             };
 
-            // propagate output signal, to outgoing links.
-            for out_link in &node.forward_links {
-                let out_node = out_link.node_idx.index();
-                self.incoming_signals[out_node] += out_link.weight * output;
+            // propagate output signal to outgoing links.
+            node.each_active_forward_link(|out_node_idx, weight| {
+                let out_node = out_node_idx.index();
+                self.incoming_signals[out_node] += weight * output;
                 if !seen.contains(out_node) {
                     seen.insert(out_node);
-                    nodes.push(out_link.node_idx);
+                    nodes.push(out_node_idx);
                 }
-            }
+            });
         }
     }
 
