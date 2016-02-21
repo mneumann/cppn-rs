@@ -123,7 +123,6 @@ impl<'a, N: CppnNodeType> Cppn<'a, N> {
             let input = self.incoming_signals[node_idx.index()];
             let output = self.graph.node(node_idx).node_type().calculate(input);
 
-
             // propagate output signal to outgoing links.
             self.graph.each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
                 let out_node = out_node_idx.index();
@@ -141,23 +140,29 @@ impl<'a, N: CppnNodeType> Cppn<'a, N> {
         assert!(self.incoming_signals.len() == self.graph.nodes().len());
         self.reset_signals();
 
-        let mut nodes = Vec::new(); // XXX: worst case capacity
-        let mut seen = FixedBitSet::with_capacity(self.incoming_signals.len());
-
         // assign all inputs
         let mut i = 0;
         for input_list in inputs.iter() {
             for &input in input_list.iter() {
                 let input_idx = self.inputs[i];
                 self.set_signal(input_idx, input);
-                nodes.push(input_idx);
-                seen.insert(input_idx.index());
                 i += 1;
             }
         }
         assert!(i == self.inputs.len());
 
-        // propagate the signals starting from the input signals.
+        let mut nodes = Vec::new(); // XXX: worst case capacity
+        let mut seen = FixedBitSet::with_capacity(self.incoming_signals.len());
+
+        // start from all nodes which have zero in_degree()
+        self.graph.each_node_with_index(|node, index| {
+            if node.in_degree() == 0 {
+                nodes.push(index);
+                seen.insert(index.index());
+            }
+        });
+
+        // propagate the signals starting from the nodes with zero in degree.
         self.propagate_signals(nodes, seen);
 
         self.outputs
