@@ -1,6 +1,7 @@
 use activation_function::ActivationFunction;
 use acyclic_network::{NodeType, Network, Link, Node};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
+use fixedbitset::FixedBitSet;
 
 #[derive(Clone, Debug)]
 pub enum CppnNodeType<A: ActivationFunction> {
@@ -9,6 +10,8 @@ pub enum CppnNodeType<A: ActivationFunction> {
     Output,
     Hidden(A),
 }
+
+const CPPN_BIAS_WEIGHT: f64 = 1.0;
 
 impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
     fn accept_incoming_links(&self) -> bool {
@@ -30,94 +33,16 @@ pub type CppnLink = Link<f64>;
 pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>, f64>;
 pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType<A>, f64>;
 
-/// Represents the output value of a CppnNode.
-#[derive(Debug, Copy, Clone)]
-enum CppnNodeValue {
-    None,
-    InCalculation,
-    Cached(f64),
-}
-
-struct CppnState {
-    values: Vec<CppnNodeValue>,
-}
-
-impl CppnState {
-    fn new(n: usize) -> CppnState {
-        CppnState { values: (0..n).map(|_| CppnNodeValue::None).collect() }
-    }
-
-    fn set(&mut self, node_idx: CppnNodeIndex, value: f64) {
-        self.values[node_idx.index()] = CppnNodeValue::Cached(value);
-    }
-
-    fn reset(&mut self) {
-        for value in self.values.iter_mut() {
-            *value = CppnNodeValue::None;
-        }
-    }
-
-    /// Calculates the output of node `node_idx`, recursively calculating
-    /// the outputs of all dependent nodes.
-    /// Panics if it hits a cycle.
-    /// XXX: Implement a non-recursive version.
-    fn calculate_output_of_node<A: ActivationFunction>(&mut self,
-                                                       graph: &CppnGraph<A>,
-                                                       node_idx: CppnNodeIndex)
-                                                       -> f64 {
-        match self.values[node_idx.index()] {
-            CppnNodeValue::InCalculation => {
-                panic!("Cycle detected");
-            }
-            CppnNodeValue::Cached(value) => {
-                // Return the cached value.
-                return value;
-            }
-            CppnNodeValue::None => {
-                // fall through.
-            }
-        }
-        let node = &graph.nodes()[node_idx.index()];
-
-        // Sum the input links
-        let input_sum: f64 = match node.node_type {
-            CppnNodeType::Bias => 1.0,
-            CppnNodeType::Input => {
-                debug_assert!(node.input_links.is_empty());
-                panic!("No input set for Input node");
-            }
-            CppnNodeType::Output | CppnNodeType::Hidden(_) => {
-                // Mark this node as being processes. If we hit such a node during a recursive call
-                // we have a cycle.
-                self.values[node_idx.index()] = CppnNodeValue::InCalculation;
-                let mut sum: f64 = 0.0;
-                for in_link in &node.input_links {
-                    sum += in_link.weight * self.calculate_output_of_node(graph, in_link.node_idx);
-                }
-                sum
-            }
-        };
-
-        // apply activation function on `input_sum` if available
-        let output = if let CppnNodeType::Hidden(ref activation_function) = node.node_type {
-            activation_function.calculate(input_sum)
-        } else {
-            input_sum
-        };
-
-        // cache the value. this also resets the InCalculation state.
-        self.values[node_idx.index()] = CppnNodeValue::Cached(output);
-
-        output
-    }
-}
-
 /// Represents a Compositional Pattern Producing Network (CPPN)
 pub struct Cppn<'a, A: ActivationFunction + 'a> {
     graph: &'a CppnGraph<A>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
-    state: CppnState,
+
+    // For each node in `graph` there exists a corresponding field in `incoming_signals` describing
+    // the sum of all input signals for that node.  We could store it inline in the `CppnNode`, but
+    // this would require to make the whole CppnGraph mutable.
+    incoming_signals: Vec<f64>,
 }
 
 impl<'a, A: ActivationFunction> Cppn<'a, A> {
@@ -137,35 +62,81 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
             }
         }
 
-        let state = CppnState::new(graph.nodes().len());
         Cppn {
             graph: graph,
             inputs: inputs,
             outputs: outputs,
-            state: state,
+            incoming_signals: graph.nodes().iter().map(|_| 0.0).collect(),
+        }
+    }
+
+    fn set_signal(&mut self, node_idx: CppnNodeIndex, value: f64) {
+        self.incoming_signals[node_idx.index()] = value;
+    }
+
+    fn reset_signals(&mut self) {
+        for value in self.incoming_signals.iter_mut() {
+            *value = 0.0;
+        }
+    }
+
+    /// Forward-propagate the signals starting from `from_nodes`. We use
+    /// breadth-first-search (BFS).
+    fn propagate_signals(&mut self, mut nodes: Vec<CppnNodeIndex>, mut seen: FixedBitSet) {
+        while let Some(node_idx) = nodes.pop() {
+            let node = &self.graph.nodes()[node_idx.index()];
+            let input = self.incoming_signals[node_idx.index()];
+            let output = match node.node_type {
+                CppnNodeType::Hidden(ref activation_function) => {
+                    // apply activation function on `input`
+                    activation_function.calculate(input)
+                }
+                CppnNodeType::Input | CppnNodeType::Output => {
+                    // Simply pass on the input signal.
+                    input
+                }
+                CppnNodeType::Bias => CPPN_BIAS_WEIGHT,
+            };
+
+            // propagate output signal, to outgoing links.
+            for out_link in &node.output_links {
+                let out_node = out_link.node_idx.index();
+                self.incoming_signals[out_node] += out_link.weight * output;
+                if !seen.contains(out_node) {
+                    seen.insert(out_node);
+                    nodes.push(out_link.node_idx);
+                }
+            }
         }
     }
 
     /// Calculate all outputs
     pub fn calculate(&mut self, inputs: &[&[f64]]) -> Vec<f64> {
-        let mut state = &mut self.state;
+        assert!(self.incoming_signals.len() == self.graph.nodes().len());
+        self.reset_signals();
 
-        state.reset();
+        let mut nodes = Vec::new(); // XXX: worst case capacity
+        let mut seen = FixedBitSet::with_capacity(self.incoming_signals.len());
 
         // assign all inputs
         let mut i = 0;
         for input_list in inputs.iter() {
             for &input in input_list.iter() {
-                state.set(self.inputs[i], input);
+                let input_idx = self.inputs[i];
+                self.set_signal(input_idx, input);
+                nodes.push(input_idx);
+                seen.insert(input_idx.index());
                 i += 1;
             }
         }
         assert!(i == self.inputs.len());
 
-        let graph = &self.graph;
+        // propagate the signals starting from the input signals.
+        self.propagate_signals(nodes, seen);
+
         self.outputs
             .iter()
-            .map(|&node_idx| state.calculate_output_of_node(graph, node_idx))
+            .map(|&node_idx| self.incoming_signals[node_idx.index()])
             .collect()
     }
 }
