@@ -2,6 +2,7 @@ use activation_function::ActivationFunction;
 use acyclic_network::{NodeType, Network, Node};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub enum CppnNodeType<A: ActivationFunction> {
@@ -29,12 +30,14 @@ impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
     }
 }
 
-pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>>;
-pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType<A>, f64>;
+pub type CppnNode<A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> =
+    Node<CppnNodeType<A>, EXTID>;
+pub type CppnGraph<A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> =
+    Network<CppnNodeType<A>, f64, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn<'a, A: ActivationFunction + 'a> {
-    graph: &'a CppnGraph<A>,
+pub struct Cppn<'a, A: ActivationFunction + 'a, EXTID: Copy + Debug + Send + Sized + 'a> {
+    graph: &'a CppnGraph<A, EXTID>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
 
@@ -44,8 +47,8 @@ pub struct Cppn<'a, A: ActivationFunction + 'a> {
     incoming_signals: Vec<f64>,
 }
 
-impl<'a, A: ActivationFunction> Cppn<'a, A> {
-    pub fn new(graph: &'a CppnGraph<A>) -> Cppn<'a, A> {
+impl<'a, A: ActivationFunction, EXTID: Copy + Debug + Send + Sized> Cppn<'a, A, EXTID> {
+    pub fn new(graph: &'a CppnGraph<A, EXTID>) -> Cppn<'a, A, EXTID> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
@@ -84,7 +87,7 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
     fn propagate_signals(&mut self, mut nodes: Vec<CppnNodeIndex>, mut seen: FixedBitSet) {
         while let Some(node_idx) = nodes.pop() {
             let input = self.incoming_signals[node_idx.index()];
-            let output = match *self.graph.node_type_of(node_idx) {
+            let output = match *self.graph.node(node_idx).node_type() {
                 CppnNodeType::Hidden(ref activation_function) => {
                     // apply activation function on `input`
                     activation_function.calculate(input)
@@ -144,9 +147,9 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
 fn test_cycle() {
     use super::bipolar::BipolarActivationFunction as AF;
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input);
-    let h1 = g.add_node(CppnNodeType::Hidden(AF::Identity));
-    let h2 = g.add_node(CppnNodeType::Hidden(AF::Identity));
+    let i1 = g.add_node(CppnNodeType::Input, ());
+    let h1 = g.add_node(CppnNodeType::Hidden(AF::Identity), ());
+    let h2 = g.add_node(CppnNodeType::Hidden(AF::Identity), ());
     assert_eq!(true, g.valid_link(i1, i1).is_err());
     assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -176,9 +179,9 @@ fn test_simple_cppn() {
     use super::bipolar::BipolarActivationFunction as AF;
 
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNodeType::Input);
-    let h1 = g.add_node(CppnNodeType::Hidden(AF::Linear));
-    let o1 = g.add_node(CppnNodeType::Output);
+    let i1 = g.add_node(CppnNodeType::Input, ());
+    let h1 = g.add_node(CppnNodeType::Hidden(AF::Linear), ());
+    let o1 = g.add_node(CppnNodeType::Output, ());
     g.add_link(i1, h1, 0.5);
     g.add_link(h1, o1, 1.0);
 
@@ -195,10 +198,10 @@ fn test_find_random_unconnected_link_no_cycle() {
     use rand;
     use super::bipolar::BipolarActivationFunction as AF;
 
-    let mut g = CppnGraph::<AF>::new();
-    let i1 = g.add_node(CppnNodeType::Input);
-    let o1 = g.add_node(CppnNodeType::Output);
-    let o2 = g.add_node(CppnNodeType::Output);
+    let mut g = CppnGraph::<AF, ()>::new();
+    let i1 = g.add_node(CppnNodeType::Input, ());
+    let o1 = g.add_node(CppnNodeType::Output, ());
+    let o2 = g.add_node(CppnNodeType::Output, ());
 
     let mut rng = rand::thread_rng();
 

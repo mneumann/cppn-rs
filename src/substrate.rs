@@ -1,6 +1,7 @@
 use position::Position;
 use cppn::Cppn;
 use activation_function::ActivationFunction;
+use std::fmt::Debug;
 
 /// Represents a node in the substrate. `T` is an arbitrary
 /// type used to store additional information about that node.
@@ -13,9 +14,14 @@ pub struct Substrate<P: Position, T> {
     nodes: Vec<Node<P, T>>,
 }
 
-pub struct LinkIterator<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a> {
+pub struct LinkIterator<'a,
+                        A: ActivationFunction + 'a,
+                        P: Position + 'a,
+                        T: 'a,
+                        EXTID: Copy + Debug + Send + Sized + 'a>
+{
     nodes: &'a [Node<P, T>],
-    cppn: &'a mut Cppn<'a, A>,
+    cppn: &'a mut Cppn<'a, A, EXTID>,
     inner: usize,
     outer: usize,
     max_distance: Option<f64>,
@@ -31,7 +37,7 @@ pub struct Link<'a, P: Position + 'a, T: 'a> {
     pub distance: f64,
 }
 
-impl<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, A, P, T> {
+impl<'a, A: ActivationFunction + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Send + Sized + 'a> Iterator for LinkIterator<'a, A, P, T, EXTID> {
     type Item = Link<'a, P, T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -98,11 +104,12 @@ impl<P: Position, T> Substrate<P, T> {
     }
 
     /// Iterate over all produced links of Cppn.
-    pub fn iter_links<'a, A>(&'a self,
-                             cppn: &'a mut Cppn<'a, A>,
-                             max_distance: Option<f64>)
-                             -> LinkIterator<'a, A, P, T>
-        where A: ActivationFunction
+    pub fn iter_links<'a, A, EXTID>(&'a self,
+                                    cppn: &'a mut Cppn<'a, A, EXTID>,
+                                    max_distance: Option<f64>)
+                                    -> LinkIterator<'a, A, P, T, EXTID>
+        where A: ActivationFunction,
+              EXTID: Copy + Debug + Send + Sized + 'a
     {
         LinkIterator {
             nodes: &self.nodes,
