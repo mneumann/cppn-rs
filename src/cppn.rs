@@ -29,7 +29,7 @@ impl<A: ActivationFunction> NodeType for CppnNodeType<A> {
     }
 }
 
-pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>, f64>;
+pub type CppnNode<A: ActivationFunction> = Node<CppnNodeType<A>>;
 pub type CppnGraph<A: ActivationFunction> = Network<CppnNodeType<A>, f64>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
@@ -49,17 +49,17 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
-        for (i, node) in graph.nodes().iter().enumerate() {
+        graph.each_node_with_index(|node, index| {
             match *node.node_type() {
                 CppnNodeType::Input => {
-                    inputs.push(CppnNodeIndex::new(i));
+                    inputs.push(index);
                 }
                 CppnNodeType::Output => {
-                    outputs.push(CppnNodeIndex::new(i));
+                    outputs.push(index);
                 }
                 _ => {}
             }
-        }
+        });
 
         Cppn {
             graph: graph,
@@ -83,9 +83,8 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
     /// breadth-first-search (BFS).
     fn propagate_signals(&mut self, mut nodes: Vec<CppnNodeIndex>, mut seen: FixedBitSet) {
         while let Some(node_idx) = nodes.pop() {
-            let node = &self.graph.nodes()[node_idx.index()];
             let input = self.incoming_signals[node_idx.index()];
-            let output = match *node.node_type() {
+            let output = match *self.graph.node_type_of(node_idx) {
                 CppnNodeType::Hidden(ref activation_function) => {
                     // apply activation function on `input`
                     activation_function.calculate(input)
@@ -98,7 +97,7 @@ impl<'a, A: ActivationFunction> Cppn<'a, A> {
             };
 
             // propagate output signal to outgoing links.
-            node.each_active_forward_link(|out_node_idx, weight| {
+            self.graph.each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
                 let out_node = out_node_idx.index();
                 self.incoming_signals[out_node] += weight * output;
                 if !seen.contains(out_node) {
