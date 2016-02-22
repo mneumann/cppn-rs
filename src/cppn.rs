@@ -2,6 +2,7 @@ use activation_function::ActivationFunction;
 use acyclic_network::{NodeType, Network};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
+use std::fmt::Debug;
 
 pub trait CppnNodeType: NodeType + ActivationFunction {
     fn is_input_node(&self) -> bool;
@@ -70,11 +71,13 @@ impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     }
 }
 
-pub type CppnGraph<N: CppnNodeType> = Network<N, f64>;
+pub type CppnGraph<N: CppnNodeType, EXTID: Copy + Debug + Send + Sized + Ord> = Network<N,
+                                                                                        f64,
+                                                                                        EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn<'a, N: CppnNodeType + 'a> {
-    graph: &'a CppnGraph<N>,
+pub struct Cppn<'a, N: CppnNodeType + 'a, EXTID: Copy + Debug + Send + Sized + Ord + 'a> {
+    graph: &'a CppnGraph<N, EXTID>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
 
@@ -84,8 +87,8 @@ pub struct Cppn<'a, N: CppnNodeType + 'a> {
     incoming_signals: Vec<f64>,
 }
 
-impl<'a, N: CppnNodeType> Cppn<'a, N> {
-    pub fn new(graph: &'a CppnGraph<N>) -> Cppn<'a, N> {
+impl<'a, N: CppnNodeType, EXTID: Copy + Debug + Send + Sized + Ord + 'a> Cppn<'a, N, EXTID> {
+    pub fn new(graph: &'a CppnGraph<N, EXTID>) -> Cppn<'a, N, EXTID> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
@@ -227,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_find_random_unconnected_link_no_cycle() {
-        let mut g = CppnGraph::<CppnNode<AF>>::new();
+        let mut g: CppnGraph<CppnNode<AF>, _> = CppnGraph::new();
         let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
         let o1 = g.add_node(CppnNode::Output, ExternalNodeId(2));
         let o2 = g.add_node(CppnNode::Output, ExternalNodeId(3));
