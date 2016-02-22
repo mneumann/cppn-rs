@@ -71,13 +71,18 @@ impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     }
 }
 
-pub type CppnGraph<N: CppnNodeType, EXTID: Copy + Debug + Send + Sized + Ord> = Network<N,
-                                                                                        f64,
-                                                                                        EXTID>;
+pub type CppnGraph<N, L, EXTID>
+    where N: CppnNodeType,
+          L: Copy + Debug + Send + Sized + Into<f64>,
+          EXTID: Copy + Debug + Send + Sized + Ord = Network<N, L, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
-pub struct Cppn<'a, N: CppnNodeType + 'a, EXTID: Copy + Debug + Send + Sized + Ord + 'a> {
-    graph: &'a CppnGraph<N, EXTID>,
+pub struct Cppn<'a, N, L, EXTID>
+    where N: CppnNodeType + 'a,
+          L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+          EXTID: Copy + Debug + Send + Sized + Ord + 'a
+{
+    graph: &'a CppnGraph<N, L, EXTID>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
 
@@ -87,8 +92,12 @@ pub struct Cppn<'a, N: CppnNodeType + 'a, EXTID: Copy + Debug + Send + Sized + O
     incoming_signals: Vec<f64>,
 }
 
-impl<'a, N: CppnNodeType, EXTID: Copy + Debug + Send + Sized + Ord + 'a> Cppn<'a, N, EXTID> {
-    pub fn new(graph: &'a CppnGraph<N, EXTID>) -> Cppn<'a, N, EXTID> {
+impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
+    where N: CppnNodeType + 'a,
+          L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+          EXTID: Copy + Debug + Send + Sized + Ord + 'a
+{
+    pub fn new(graph: &'a CppnGraph<N, L, EXTID>) -> Cppn<'a, N, L, EXTID> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
 
@@ -129,6 +138,7 @@ impl<'a, N: CppnNodeType, EXTID: Copy + Debug + Send + Sized + Ord + 'a> Cppn<'a
             // propagate output signal to outgoing links.
             self.graph.each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
                 let out_node = out_node_idx.index();
+                let weight: f64 = weight.into();
                 self.incoming_signals[out_node] += weight * output;
                 if !seen.contains(out_node) {
                     seen.insert(out_node);
@@ -230,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_find_random_unconnected_link_no_cycle() {
-        let mut g: CppnGraph<CppnNode<AF>, _> = CppnGraph::new();
+        let mut g: CppnGraph<CppnNode<AF>, _, _> = CppnGraph::new();
         let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
         let o1 = g.add_node(CppnNode::Output, ExternalNodeId(2));
         let o2 = g.add_node(CppnNode::Output, ExternalNodeId(3));

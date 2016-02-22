@@ -15,12 +15,13 @@ pub struct Substrate<P: Position, T> {
 
 pub struct LinkIterator<'a,
                         N: CppnNodeType + 'a,
+                        L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+                        EXTID: Copy + Debug + Send + Sized + Ord + 'a,
                         P: Position + 'a,
-                        T: 'a,
-                        EXTID: Copy + Debug + Send + Sized + Ord + 'a>
+                        T: 'a>
 {
     nodes: &'a [Node<P, T>],
-    cppn: &'a mut Cppn<'a, N, EXTID>,
+    cppn: &'a mut Cppn<'a, N, L, EXTID>,
     inner: usize,
     outer: usize,
     max_distance: Option<f64>,
@@ -36,7 +37,10 @@ pub struct Link<'a, P: Position + 'a, T: 'a> {
     pub distance: f64,
 }
 
-impl<'a, N: CppnNodeType + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Send + Sized + Ord + 'a> Iterator for LinkIterator<'a, N, P, T, EXTID> {
+impl<'a, N: CppnNodeType + 'a,
+   L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+    EXTID: Copy + Debug + Send + Sized + Ord + 'a,
+P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, N, L, EXTID, P, T> {
     type Item = Link<'a, P, T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -58,7 +62,7 @@ impl<'a, N: CppnNodeType + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Se
             let target = &self.nodes[self.outer];
             let distance = source.position.distance(&target.position);
 
-            // reject a pair of nodes based on `max_distance`.
+// reject a pair of nodes based on `max_distance`.
             if let Some(max_d) = self.max_distance {
                 if distance > max_d {
                     self.inner += 1;
@@ -66,7 +70,7 @@ impl<'a, N: CppnNodeType + 'a, P: Position + 'a, T: 'a, EXTID: Copy + Debug + Se
                 }
             }
 
-            // Calculate the weight between source and target using the CPPN.
+// Calculate the weight between source and target using the CPPN.
             let inputs_to_cppn = [source.position.coords(), target.position.coords()];
             let outputs_from_cppn = self.cppn.calculate(&inputs_to_cppn);
             assert!(outputs_from_cppn.len() == 1);
@@ -103,11 +107,12 @@ impl<P: Position, T> Substrate<P, T> {
     }
 
     /// Iterate over all produced links of Cppn.
-    pub fn iter_links<'a, N, EXTID>(&'a self,
-                                    cppn: &'a mut Cppn<'a, N, EXTID>,
-                                    max_distance: Option<f64>)
-                                    -> LinkIterator<'a, N, P, T, EXTID>
+    pub fn iter_links<'a, N, L, EXTID>(&'a self,
+                                       cppn: &'a mut Cppn<'a, N, L, EXTID>,
+                                       max_distance: Option<f64>)
+                                       -> LinkIterator<'a, N, L, EXTID, P, T>
         where N: CppnNodeType,
+              L: Copy + Debug + Send + Sized + Into<f64> + 'a,
               EXTID: Copy + Debug + Send + Sized + Ord + 'a
     {
         LinkIterator {
