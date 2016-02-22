@@ -172,13 +172,19 @@ impl<'a, N: CppnNodeType> Cppn<'a, N> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use bipolar::BipolarActivationFunction as AF;
+    use super::{Cppn, CppnGraph, CppnNode};
+    use acyclic_network::ExternalNodeId;
+    use rand;
+
 #[test]
 fn test_cycle() {
-    use super::bipolar::BipolarActivationFunction as AF;
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNode::Input);
-    let h1 = g.add_node(CppnNode::Hidden(AF::Identity));
-    let h2 = g.add_node(CppnNode::Hidden(AF::Identity));
+    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+    let h1 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(2));
+    let h2 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(3));
     assert_eq!(true, g.valid_link(i1, i1).is_err());
     assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -205,12 +211,10 @@ fn test_cycle() {
 
 #[test]
 fn test_simple_cppn() {
-    use super::bipolar::BipolarActivationFunction as AF;
-
     let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNode::Input);
-    let h1 = g.add_node(CppnNode::Hidden(AF::Linear));
-    let o1 = g.add_node(CppnNode::Output);
+    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+    let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalNodeId(2));
+    let o1 = g.add_node(CppnNode::Output, ExternalNodeId(3));
     g.add_link(i1, h1, 0.5);
     g.add_link(h1, o1, 1.0);
 
@@ -223,13 +227,10 @@ fn test_simple_cppn() {
 
 #[test]
 fn test_find_random_unconnected_link_no_cycle() {
-    use rand;
-    use super::bipolar::BipolarActivationFunction as AF;
-
     let mut g = CppnGraph::<CppnNode<AF>>::new();
-    let i1 = g.add_node(CppnNode::Input);
-    let o1 = g.add_node(CppnNode::Output);
-    let o2 = g.add_node(CppnNode::Output);
+    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+    let o1 = g.add_node(CppnNode::Output, ExternalNodeId(2));
+    let o2 = g.add_node(CppnNode::Output, ExternalNodeId(3));
 
     let mut rng = rand::thread_rng();
 
@@ -246,4 +247,6 @@ fn test_find_random_unconnected_link_no_cycle() {
     g.add_link(i1, o1, 0.0);
     let link = g.find_random_unconnected_link_no_cycle(&mut rng);
     assert_eq!(false, link.is_some());
+}
+
 }
