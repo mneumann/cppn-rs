@@ -179,74 +179,74 @@ mod tests {
     use acyclic_network::ExternalNodeId;
     use rand;
 
-#[test]
-fn test_cycle() {
-    let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
-    let h1 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(2));
-    let h2 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(3));
-    assert_eq!(true, g.valid_link(i1, i1).is_err());
-    assert_eq!(true, g.valid_link(h1, h1).is_err());
+    #[test]
+    fn test_cycle() {
+        let mut g = CppnGraph::new();
+        let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+        let h1 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(2));
+        let h2 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalNodeId(3));
+        assert_eq!(true, g.valid_link(i1, i1).is_err());
+        assert_eq!(true, g.valid_link(h1, h1).is_err());
 
-    assert_eq!(true, g.valid_link(h1, i1).is_err());
-    assert_eq!(Ok(()), g.valid_link(i1, h1));
-    assert_eq!(Ok(()), g.valid_link(i1, h2));
-    assert_eq!(Ok(()), g.valid_link(h1, h2));
+        assert_eq!(true, g.valid_link(h1, i1).is_err());
+        assert_eq!(Ok(()), g.valid_link(i1, h1));
+        assert_eq!(Ok(()), g.valid_link(i1, h2));
+        assert_eq!(Ok(()), g.valid_link(h1, h2));
 
-    g.add_link(i1, h1, 0.0);
-    assert_eq!(true, g.link_would_cycle(h1, i1));
-    assert_eq!(false, g.link_would_cycle(i1, h1));
-    assert_eq!(false, g.link_would_cycle(i1, h2));
-    assert_eq!(true, g.link_would_cycle(i1, i1));
-    assert_eq!(false, g.link_would_cycle(h1, h2));
-    assert_eq!(false, g.link_would_cycle(h2, h1));
-    assert_eq!(false, g.link_would_cycle(h2, i1));
+        g.add_link(i1, h1, 0.0);
+        assert_eq!(true, g.link_would_cycle(h1, i1));
+        assert_eq!(false, g.link_would_cycle(i1, h1));
+        assert_eq!(false, g.link_would_cycle(i1, h2));
+        assert_eq!(true, g.link_would_cycle(i1, i1));
+        assert_eq!(false, g.link_would_cycle(h1, h2));
+        assert_eq!(false, g.link_would_cycle(h2, h1));
+        assert_eq!(false, g.link_would_cycle(h2, i1));
 
-    g.add_link(h1, h2, 0.0);
-    assert_eq!(true, g.link_would_cycle(h2, i1));
-    assert_eq!(true, g.link_would_cycle(h1, i1));
-    assert_eq!(true, g.link_would_cycle(h2, h1));
-    assert_eq!(false, g.link_would_cycle(i1, h2));
-}
+        g.add_link(h1, h2, 0.0);
+        assert_eq!(true, g.link_would_cycle(h2, i1));
+        assert_eq!(true, g.link_would_cycle(h1, i1));
+        assert_eq!(true, g.link_would_cycle(h2, h1));
+        assert_eq!(false, g.link_would_cycle(i1, h2));
+    }
 
-#[test]
-fn test_simple_cppn() {
-    let mut g = CppnGraph::new();
-    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
-    let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalNodeId(2));
-    let o1 = g.add_node(CppnNode::Output, ExternalNodeId(3));
-    g.add_link(i1, h1, 0.5);
-    g.add_link(h1, o1, 1.0);
+    #[test]
+    fn test_simple_cppn() {
+        let mut g = CppnGraph::new();
+        let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+        let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalNodeId(2));
+        let o1 = g.add_node(CppnNode::Output, ExternalNodeId(3));
+        g.add_link(i1, h1, 0.5);
+        g.add_link(h1, o1, 1.0);
 
-    let mut cppn = Cppn::new(&g);
+        let mut cppn = Cppn::new(&g);
 
-    assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
-    assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
-    assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
-}
+        assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
+        assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
+        assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
+    }
 
-#[test]
-fn test_find_random_unconnected_link_no_cycle() {
-    let mut g = CppnGraph::<CppnNode<AF>>::new();
-    let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
-    let o1 = g.add_node(CppnNode::Output, ExternalNodeId(2));
-    let o2 = g.add_node(CppnNode::Output, ExternalNodeId(3));
+    #[test]
+    fn test_find_random_unconnected_link_no_cycle() {
+        let mut g = CppnGraph::<CppnNode<AF>>::new();
+        let i1 = g.add_node(CppnNode::Input, ExternalNodeId(1));
+        let o1 = g.add_node(CppnNode::Output, ExternalNodeId(2));
+        let o2 = g.add_node(CppnNode::Output, ExternalNodeId(3));
 
-    let mut rng = rand::thread_rng();
+        let mut rng = rand::thread_rng();
 
-    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
-    assert_eq!(true, link.is_some());
-    let l = link.unwrap();
-    assert!((i1, o1) == l || (i1, o2) == l);
+        let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+        assert_eq!(true, link.is_some());
+        let l = link.unwrap();
+        assert!((i1, o1) == l || (i1, o2) == l);
 
-    g.add_link(i1, o2, 0.0);
-    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
-    assert_eq!(true, link.is_some());
-    assert_eq!((i1, o1), link.unwrap());
+        g.add_link(i1, o2, 0.0);
+        let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+        assert_eq!(true, link.is_some());
+        assert_eq!((i1, o1), link.unwrap());
 
-    g.add_link(i1, o1, 0.0);
-    let link = g.find_random_unconnected_link_no_cycle(&mut rng);
-    assert_eq!(false, link.is_some());
-}
+        g.add_link(i1, o1, 0.0);
+        let link = g.find_random_unconnected_link_no_cycle(&mut rng);
+        assert_eq!(false, link.is_some());
+    }
 
 }
