@@ -1,15 +1,16 @@
 use position::Position;
 use cppn::{Cppn, CppnNodeType};
+use acyclic_network::NodeType;
 use std::fmt::Debug;
 
-/// Represents a node in the substrate. `T` is an arbitrary
-/// type used to store additional information about that node.
-pub struct Node<P: Position, T> {
+/// Represents a node in the substrate. `T` stores  additional information about that node.
+
+pub struct Node<P: Position, T: NodeType> {
     pub position: P,
-    pub data: T,
+    pub node_type: T,
 }
 
-pub struct Substrate<P: Position, T> {
+pub struct Substrate<P: Position, T: NodeType> {
     nodes: Vec<Node<P, T>>,
 }
 
@@ -18,7 +19,7 @@ pub struct LinkIterator<'a,
                         L: Copy + Debug + Send + Sized + Into<f64> + 'a,
                         EXTID: Copy + Debug + Send + Sized + Ord + 'a,
                         P: Position + 'a,
-                        T: 'a>
+                        T: NodeType + 'a>
 {
     nodes: &'a [Node<P, T>],
     cppn: &'a mut Cppn<'a, N, L, EXTID>,
@@ -28,7 +29,7 @@ pub struct LinkIterator<'a,
 }
 
 #[derive(Copy, Clone)]
-pub struct Link<'a, P: Position + 'a, T: 'a> {
+pub struct Link<'a, P: Position + 'a, T: NodeType + 'a> {
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
     pub source_idx: usize,
@@ -40,7 +41,7 @@ pub struct Link<'a, P: Position + 'a, T: 'a> {
 impl<'a, N: CppnNodeType + 'a,
    L: Copy + Debug + Send + Sized + Into<f64> + 'a,
     EXTID: Copy + Debug + Send + Sized + Ord + 'a,
-P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, N, L, EXTID, P, T> {
+P: Position + 'a, T: NodeType + 'a> Iterator for LinkIterator<'a, N, L, EXTID, P, T> {
     type Item = Link<'a, P, T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -60,6 +61,13 @@ P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, N, L, EXTID, P, T> {
                     self.inner != self.outer);
             let source = &self.nodes[self.inner];
             let target = &self.nodes[self.outer];
+
+            // Reject invalid connections.
+            if !source.node_type.accept_outgoing_links() || !target.node_type.accept_incoming_links() {
+                    self.inner += 1;
+                    continue;
+            }
+
             let distance = source.position.distance(&target.position);
 
 // reject a pair of nodes based on `max_distance`.
@@ -90,7 +98,7 @@ P: Position + 'a, T: 'a> Iterator for LinkIterator<'a, N, L, EXTID, P, T> {
     }
 }
 
-impl<P: Position, T> Substrate<P, T> {
+impl<P: Position, T: NodeType> Substrate<P, T> {
     pub fn new() -> Substrate<P, T> {
         Substrate { nodes: Vec::new() }
     }
@@ -99,10 +107,10 @@ impl<P: Position, T> Substrate<P, T> {
         &self.nodes
     }
 
-    pub fn add_node(&mut self, position: P, data: T) {
+    pub fn add_node(&mut self, position: P, node_type: T) {
         self.nodes.push(Node {
             position: position,
-            data: data,
+            node_type: node_type,
         });
     }
 
