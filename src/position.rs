@@ -4,6 +4,8 @@ pub trait Position {
     fn coords(&self) -> &[f64];
     fn distance(&self, other: &Self) -> f64;
 
+    fn origin() -> Self;
+
     /// Linearly interpolates between `self` and `other`.
     /// For t = 0.0 this should return `self`. For t = 1.0 this
     /// should return `other`.
@@ -41,6 +43,11 @@ impl Position for Position2d {
     #[inline(always)]
     fn coords(&self) -> &[f64] {
         &self.0
+    }
+
+    #[inline(always)]
+    fn origin() -> Self {
+        Position2d::new(0.0, 0.0)
     }
 
     #[inline]
