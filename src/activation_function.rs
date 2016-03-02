@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 pub trait ActivationFunction: Clone + Debug + Send + Sized {
-    fn formula_gnuplot(&self, x: &str) -> String;
+    fn formula_gnuplot(&self, x: String) -> String;
 
     fn calculate(&self, x: f64) -> f64;
 }
@@ -55,7 +55,7 @@ impl ActivationFunction for GeometricActivationFunction {
         }
     }
 
-    fn formula_gnuplot(&self, x: &str) -> String {
+    fn formula_gnuplot(&self, x: String) -> String {
         match *self {
             GeometricActivationFunction::Linear => format!("{}", x),
             GeometricActivationFunction::LinearBipolarClipped => format!("max(-1.0, min(1.0, {}))", x),

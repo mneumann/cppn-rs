@@ -20,9 +20,17 @@ pub enum CppnNode<A: ActivationFunction> {
 
 const CPPN_BIAS_WEIGHT: f64 = 1.0;
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
-    fn formula_gnuplot(&self, _x: &str) -> String {
-        // XXX
-        "".to_owned()
+    fn formula_gnuplot(&self, x: String) -> String {
+        match *self {
+            CppnNode::Hidden(ref activation_function) => {
+                activation_function.formula_gnuplot(x)
+            }
+            CppnNode::Input | CppnNode::Output => {
+                // simply forward
+                x
+            }
+            CppnNode::Bias => format!("{}", CPPN_BIAS_WEIGHT),
+        }
     }
 
     fn calculate(&self, input: f64) -> f64 {
