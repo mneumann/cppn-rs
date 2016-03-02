@@ -62,7 +62,8 @@ P: Position + 'a, T: NodeType + 'a> Iterator for LinkIterator<'a, N, L, EXTID, P
             let source = &self.nodes[self.inner];
             let target = &self.nodes[self.outer];
 
-            // Reject invalid connections.
+// Reject invalid connections.
+
             if !source.node_type.accept_outgoing_links() || !target.node_type.accept_incoming_links() {
                     self.inner += 1;
                     continue;
@@ -71,6 +72,7 @@ P: Position + 'a, T: NodeType + 'a> Iterator for LinkIterator<'a, N, L, EXTID, P
             let distance = source.position.distance(&target.position);
 
 // reject a pair of nodes based on `max_distance`.
+
             if let Some(max_d) = self.max_distance {
                 if distance > max_d {
                     self.inner += 1;
@@ -79,7 +81,9 @@ P: Position + 'a, T: NodeType + 'a> Iterator for LinkIterator<'a, N, L, EXTID, P
             }
 
 // Calculate the weight between source and target using the CPPN.
-            let inputs_to_cppn = [source.position.coords(), target.position.coords()];
+
+            let distance_between: &[_] = &[distance];
+            let inputs_to_cppn = [source.position.coords(), target.position.coords(), distance_between];
             let outputs_from_cppn = self.cppn.calculate(&inputs_to_cppn);
             assert!(outputs_from_cppn.len() == 1);
             let weight = outputs_from_cppn[0];
