@@ -18,45 +18,46 @@ pub enum CppnNodeKind {
 }
 
 /// A concrete implementation of a CppnNodeType.
-
 #[derive(Clone, Debug)]
 pub struct CppnNode<A: ActivationFunction> {
     kind: CppnNodeKind,
     activation_function: A,
 }
 
-impl<A> CppnNode<A> where A: ActivationFunction {
+impl<A> CppnNode<A>
+    where A: ActivationFunction
+{
     pub fn new(kind: CppnNodeKind, activation_function: A) -> Self {
         CppnNode {
             kind: kind,
-            activation_function: activation_function 
+            activation_function: activation_function,
         }
     }
 
     pub fn input(activation_function: A) -> Self {
-        Self::new(CppnNodeKind::Input, activation_function) 
+        Self::new(CppnNodeKind::Input, activation_function)
     }
 
     pub fn output(activation_function: A) -> Self {
-        Self::new(CppnNodeKind::Output, activation_function) 
+        Self::new(CppnNodeKind::Output, activation_function)
     }
 
     pub fn hidden(activation_function: A) -> Self {
-        Self::new(CppnNodeKind::Hidden, activation_function) 
+        Self::new(CppnNodeKind::Hidden, activation_function)
     }
 
     pub fn bias(activation_function: A) -> Self {
-        Self::new(CppnNodeKind::Bias, activation_function) 
+        Self::new(CppnNodeKind::Bias, activation_function)
     }
-
 }
 
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
     fn formula_gnuplot(&self, x: String) -> String {
         match self.kind {
-            CppnNodeKind::Input | CppnNodeKind::Output | CppnNodeKind::Hidden | CppnNodeKind::Bias => {
-                self.activation_function.formula_gnuplot(x)
-            }
+            CppnNodeKind::Input |
+            CppnNodeKind::Output |
+            CppnNodeKind::Hidden |
+            CppnNodeKind::Bias => self.activation_function.formula_gnuplot(x),
         }
     }
 
@@ -205,7 +206,11 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
         self.outputs
             .iter()
-            .map(|&node_idx| self.incoming_signals[node_idx.index()])
+            .map(|&node_idx| {
+                let input = self.incoming_signals[node_idx.index()];
+                let output = self.graph.node(node_idx).node_type().calculate(input);
+                output
+            })
             .collect()
     }
 }
@@ -263,6 +268,23 @@ mod tests {
         assert_eq!(vec![f(4.0)], cppn.calculate(&[&[4.0]]));
         assert_eq!(vec![f(-4.0)], cppn.calculate(&[&[-4.0]]));
     }
+
+    #[test]
+    fn test_cppn_with_output_activation_function() {
+        let mut g = CppnGraph::new();
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let h1 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let o1 = g.add_node(CppnNode::output(AF::Constant1), ExternalId(3));
+        g.add_link(i1, h1, 0.5, ExternalId(1));
+        g.add_link(h1, o1, 1.0, ExternalId(2));
+
+        let mut cppn = Cppn::new(&g);
+
+        assert_eq!(vec![1.0], cppn.calculate(&[&[0.5]]));
+        assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
+        assert_eq!(vec![1.0], cppn.calculate(&[&[-4.0]]));
+    }
+
 
     #[test]
     fn test_find_random_unconnected_link_no_cycle() {
