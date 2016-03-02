@@ -33,6 +33,7 @@ pub enum GeometricActivationFunction {
     BipolarSigmoid,
     Sine,
     Cosine,
+    Constant1,
 }
 
 impl ActivationFunction for GeometricActivationFunction {
@@ -52,6 +53,7 @@ impl ActivationFunction for GeometricActivationFunction {
             }
             GeometricActivationFunction::Sine => bipolar_debug_check(x.sin()),
             GeometricActivationFunction::Cosine => bipolar_debug_check(x.cos()),
+            GeometricActivationFunction::Constant1 => 1.0,
         }
     }
 
@@ -65,13 +67,14 @@ impl ActivationFunction for GeometricActivationFunction {
             GeometricActivationFunction::BipolarSigmoid => format!("2.0 / (1.0 + exp(-4.9 * ({}))) - 1.0", x),
             GeometricActivationFunction::Sine => format!("sin({})", x),
             GeometricActivationFunction::Cosine => format!("cos({})", x),
+            GeometricActivationFunction::Constant1 => format!("1.0"),
         }
     }
 }
 
 
 #[test]
-fn test_bipolar_linear() {
+fn test_bipolar_linear_clipped() {
     assert_eq!(0.0, GeometricActivationFunction::LinearBipolarClipped.calculate(0.0));
     assert_eq!(1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(1.0));
     assert_eq!(-1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(-1.0));
@@ -79,4 +82,11 @@ fn test_bipolar_linear() {
     assert_eq!(-0.5, GeometricActivationFunction::LinearBipolarClipped.calculate(-0.5));
     assert_eq!(1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(1.1));
     assert_eq!(-1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(-1.1));
+}
+
+#[test]
+fn test_constant1() {
+    assert_eq!(1.0, GeometricActivationFunction::Constant1.calculate(0.0));
+    assert_eq!(1.0, GeometricActivationFunction::Constant1.calculate(-1.0));
+    assert_eq!(1.0, GeometricActivationFunction::Constant1.calculate(1.0));
 }

@@ -9,71 +9,88 @@ pub trait CppnNodeType: NodeType + ActivationFunction {
     fn is_output_node(&self) -> bool;
 }
 
-/// A concrete implementation of a CppnNodeType.
-#[derive(Clone, Debug)]
-pub enum CppnNode<A: ActivationFunction> {
+#[derive(Clone, Copy, Debug)]
+pub enum CppnNodeKind {
     Bias,
     Input,
     Output,
-    Hidden(A),
+    Hidden,
 }
 
-const CPPN_BIAS_WEIGHT: f64 = 1.0;
+/// A concrete implementation of a CppnNodeType.
+
+#[derive(Clone, Debug)]
+pub struct CppnNode<A: ActivationFunction> {
+    kind: CppnNodeKind,
+    activation_function: A,
+}
+
+impl<A> CppnNode<A> where A: ActivationFunction {
+    pub fn new(kind: CppnNodeKind, activation_function: A) -> Self {
+        CppnNode {
+            kind: kind,
+            activation_function: activation_function 
+        }
+    }
+
+    pub fn input(activation_function: A) -> Self {
+        Self::new(CppnNodeKind::Input, activation_function) 
+    }
+
+    pub fn output(activation_function: A) -> Self {
+        Self::new(CppnNodeKind::Output, activation_function) 
+    }
+
+    pub fn hidden(activation_function: A) -> Self {
+        Self::new(CppnNodeKind::Hidden, activation_function) 
+    }
+
+    pub fn bias(activation_function: A) -> Self {
+        Self::new(CppnNodeKind::Bias, activation_function) 
+    }
+
+}
+
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
     fn formula_gnuplot(&self, x: String) -> String {
-        match *self {
-            CppnNode::Hidden(ref activation_function) => {
-                activation_function.formula_gnuplot(x)
+        match self.kind {
+            CppnNodeKind::Input | CppnNodeKind::Output | CppnNodeKind::Hidden | CppnNodeKind::Bias => {
+                self.activation_function.formula_gnuplot(x)
             }
-            CppnNode::Input | CppnNode::Output => {
-                // simply forward
-                x
-            }
-            CppnNode::Bias => format!("{}", CPPN_BIAS_WEIGHT),
         }
     }
 
     fn calculate(&self, input: f64) -> f64 {
-        match *self {
-            CppnNode::Hidden(ref activation_function) => {
-                // apply activation function on `input`
-                activation_function.calculate(input)
-            }
-            CppnNode::Input | CppnNode::Output => {
-                // Simply pass on the input signal.
-                input
-            }
-            CppnNode::Bias => CPPN_BIAS_WEIGHT,
-        }
+        self.activation_function.calculate(input)
     }
 }
 
 impl<A: ActivationFunction> NodeType for CppnNode<A> {
     fn accept_incoming_links(&self) -> bool {
-        match *self {
-            CppnNode::Input | CppnNode::Bias => false,
-            _ => true,
+        match self.kind {
+            CppnNodeKind::Hidden | CppnNodeKind::Output => true,
+            CppnNodeKind::Input | CppnNodeKind::Bias => false,
         }
     }
 
     fn accept_outgoing_links(&self) -> bool {
-        match *self {
-            CppnNode::Output => false,
-            _ => true,
+        match self.kind {
+            CppnNodeKind::Hidden | CppnNodeKind::Input | CppnNodeKind::Bias => true,
+            CppnNodeKind::Output => false,
         }
     }
 }
 
 impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     fn is_input_node(&self) -> bool {
-        match *self {
-            CppnNode::Input => true,
+        match self.kind {
+            CppnNodeKind::Input => true,
             _ => false,
         }
     }
     fn is_output_node(&self) -> bool {
-        match *self {
-            CppnNode::Output => true,
+        match self.kind {
+            CppnNodeKind::Output => true,
             _ => false,
         }
     }
@@ -203,9 +220,9 @@ mod tests {
     #[test]
     fn test_cycle() {
         let mut g = CppnGraph::new();
-        let i1 = g.add_node(CppnNode::Input, ExternalId(1));
-        let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalId(2));
-        let h2 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalId(3));
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let h1 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let h2 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(3));
         assert_eq!(true, g.valid_link(i1, i1).is_err());
         assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -233,9 +250,9 @@ mod tests {
     #[test]
     fn test_simple_cppn() {
         let mut g = CppnGraph::new();
-        let i1 = g.add_node(CppnNode::Input, ExternalId(1));
-        let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalId(2));
-        let o1 = g.add_node(CppnNode::Output, ExternalId(3));
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let h1 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let o1 = g.add_node(CppnNode::output(AF::Linear), ExternalId(3));
         g.add_link(i1, h1, 0.5, ExternalId(1));
         g.add_link(h1, o1, 1.0, ExternalId(2));
 
@@ -250,9 +267,9 @@ mod tests {
     #[test]
     fn test_find_random_unconnected_link_no_cycle() {
         let mut g: CppnGraph<CppnNode<AF>, _, _> = CppnGraph::new();
-        let i1 = g.add_node(CppnNode::Input, ExternalId(1));
-        let o1 = g.add_node(CppnNode::Output, ExternalId(2));
-        let o2 = g.add_node(CppnNode::Output, ExternalId(3));
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let o1 = g.add_node(CppnNode::output(AF::Linear), ExternalId(2));
+        let o2 = g.add_node(CppnNode::output(AF::Linear), ExternalId(3));
 
         let mut rng = rand::thread_rng();
 
