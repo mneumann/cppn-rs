@@ -20,9 +20,9 @@ pub enum CppnNode<A: ActivationFunction> {
 
 const CPPN_BIAS_WEIGHT: f64 = 1.0;
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
-    fn formula(&self) -> &'static str {
+    fn formula_gnuplot(&self, _x: &str) -> String {
         // XXX
-        ""
+        "".to_owned()
     }
 
     fn calculate(&self, input: f64) -> f64 {
@@ -187,7 +187,7 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
 #[cfg(test)]
 mod tests {
-    use bipolar::BipolarActivationFunction as AF;
+    use activation_function::GeometricActivationFunction as AF;
     use super::{Cppn, CppnGraph, CppnNode};
     use acyclic_network::ExternalId;
     use rand;
@@ -196,8 +196,8 @@ mod tests {
     fn test_cycle() {
         let mut g = CppnGraph::new();
         let i1 = g.add_node(CppnNode::Input, ExternalId(1));
-        let h1 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalId(2));
-        let h2 = g.add_node(CppnNode::Hidden(AF::Identity), ExternalId(3));
+        let h1 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalId(2));
+        let h2 = g.add_node(CppnNode::Hidden(AF::Linear), ExternalId(3));
         assert_eq!(true, g.valid_link(i1, i1).is_err());
         assert_eq!(true, g.valid_link(h1, h1).is_err());
 
@@ -233,9 +233,10 @@ mod tests {
 
         let mut cppn = Cppn::new(&g);
 
-        assert_eq!(vec![0.5 * 0.5], cppn.calculate(&[&[0.5]]));
-        assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
-        assert_eq!(vec![-1.0], cppn.calculate(&[&[-4.0]]));
+        let f = |x| 0.5 * x * 1.0;
+        assert_eq!(vec![f(0.5)], cppn.calculate(&[&[0.5]]));
+        assert_eq!(vec![f(4.0)], cppn.calculate(&[&[4.0]]));
+        assert_eq!(vec![f(-4.0)], cppn.calculate(&[&[-4.0]]));
     }
 
     #[test]
