@@ -20,7 +20,7 @@ pub struct Substrate<P, T>
     nodes: Vec<Node<P, T>>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Link<'a, P, T>
     where P: Position + 'a,
           T: NodeType + 'a
@@ -29,8 +29,14 @@ pub struct Link<'a, P, T>
     pub target: &'a Node<P, T>,
     pub source_idx: usize,
     pub target_idx: usize,
-    pub weight: f64,
+    pub outputs: Vec<f64>,
     pub distance: f64,
+}
+
+pub enum LinkMode {
+    AbsolutePositions,
+    AbsolutePositionsAndDistance,
+    RelativePositionOfTarget,
 }
 
 impl<P, T> Substrate<P, T>
@@ -57,6 +63,7 @@ impl<P, T> Substrate<P, T>
     pub fn each_link<'a, N, L, EXTID, F>(&'a self,
                                          cppn: &'a mut Cppn<'a, N, L, EXTID>,
                                          max_distance: Option<f64>,
+                                         mode: LinkMode,
                                          callback: &mut F)
         where N: CppnNodeType,
               L: Copy + Debug + Send + Sized + Into<f64> + 'a,
@@ -86,20 +93,33 @@ impl<P, T> Substrate<P, T>
 
                 // Calculate the weight between source and target using the CPPN.
 
-                let distance_between: &[_] = &[distance];
-                let inputs_to_cppn = [source.position.coords(),
-                                      target.position.coords(),
-                                      distance_between];
-                let outputs_from_cppn = cppn.calculate(&inputs_to_cppn);
-                assert!(outputs_from_cppn.len() == 1);
-                let weight = outputs_from_cppn[0];
+                let outputs_from_cppn = match mode {
+                    LinkMode::AbsolutePositions => {
+                        let inputs_to_cppn = [source.position.coords(), target.position.coords()];
+                        cppn.calculate(&inputs_to_cppn)
+                    }
+                    LinkMode::AbsolutePositionsAndDistance => {
+                        let distance_between: &[_] = &[distance];
+                        let inputs_to_cppn = [source.position.coords(),
+                                              target.position.coords(),
+                                              distance_between];
+                        cppn.calculate(&inputs_to_cppn)
+                    }
+                    LinkMode::RelativePositionOfTarget => {
+                        let relative_position_of_target =
+                            source.position.relative_position(&target.position);
+                        let inputs_to_cppn = [source.position.coords(),
+                                              relative_position_of_target.coords()];
+                        cppn.calculate(&inputs_to_cppn)
+                    }
+                };
 
                 let link = Link {
                     source: source,
                     target: target,
                     source_idx: source_idx,
                     target_idx: target_idx,
-                    weight: weight,
+                    outputs: outputs_from_cppn,
                     distance: distance,
                 };
                 callback(link);
