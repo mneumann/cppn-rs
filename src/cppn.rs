@@ -20,8 +20,8 @@ pub enum CppnNodeKind {
 /// A concrete implementation of a CppnNodeType.
 #[derive(Clone, Debug)]
 pub struct CppnNode<A: ActivationFunction> {
-    kind: CppnNodeKind,
-    activation_function: A,
+    pub kind: CppnNodeKind,
+    pub activation_function: A,
 }
 
 impl<A> CppnNode<A>
