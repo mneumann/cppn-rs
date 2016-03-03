@@ -3,14 +3,20 @@ use cppn::{Cppn, CppnNodeType};
 use acyclic_network::NodeType;
 use std::fmt::Debug;
 
-/// Represents a node in the substrate. `T` stores  additional information about that node.
+/// Represents a node in the substrate. `T` stores additional information about that node.
 
-pub struct Node<P: Position, T: NodeType> {
+pub struct Node<P, T>
+    where P: Position,
+          T: NodeType
+{
     pub position: P,
     pub node_type: T,
 }
 
-pub struct Substrate<P: Position, T: NodeType> {
+pub struct Substrate<P, T>
+    where P: Position,
+          T: NodeType
+{
     nodes: Vec<Node<P, T>>,
 }
 
@@ -29,7 +35,10 @@ pub struct LinkIterator<'a,
 }
 
 #[derive(Copy, Clone)]
-pub struct Link<'a, P: Position + 'a, T: NodeType + 'a> {
+pub struct Link<'a, P, T>
+    where P: Position + 'a,
+          T: NodeType + 'a
+{
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
     pub source_idx: usize,
@@ -102,8 +111,11 @@ P: Position + 'a, T: NodeType + 'a> Iterator for LinkIterator<'a, N, L, EXTID, P
     }
 }
 
-impl<P: Position, T: NodeType> Substrate<P, T> {
-    pub fn new() -> Substrate<P, T> {
+impl<P, T> Substrate<P, T>
+    where P: Position,
+          T: NodeType
+{
+    pub fn new() -> Self {
         Substrate { nodes: Vec::new() }
     }
 
