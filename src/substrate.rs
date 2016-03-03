@@ -48,8 +48,8 @@ pub struct Link<'a, P, T>
 {
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
-    pub source_idx: usize,
-    pub target_idx: usize,
+    pub source_idx: (usize, usize), // (layer, node)
+    pub target_idx: (usize, usize), // (layer, node)
     pub outputs: Vec<f64>,
     pub distance: f64,
 }
@@ -176,8 +176,8 @@ impl<P, T> Substrate<P, T>
                     let link = Link {
                         source: source,
                         target: target,
-                        source_idx: source_idx,
-                        target_idx: target_idx,
+                        source_idx: (layer_link.from_layer, source_idx),
+                        target_idx: (layer_link.to_layer, target_idx),
                         outputs: outputs_from_cppn,
                         distance: distance,
                     };
