@@ -43,10 +43,10 @@ impl ActivationFunction for GeometricActivationFunction {
             GeometricActivationFunction::LinearBipolarClipped => bipolar_debug_check(bipolar_clip(x)),
             GeometricActivationFunction::Absolute => x.abs(),
             GeometricActivationFunction::Gaussian => {
-                (-(x * 2.5).powi(2)).exp()
+                (-((x * 2.5).powi(2))).exp()
             }
             GeometricActivationFunction::BipolarGaussian => {
-                bipolar_debug_check(2.0 * (-(x * 2.5).powi(2)).exp() - 1.0)
+                bipolar_debug_check(2.0 * (-((x * 2.5).powi(2))).exp() - 1.0)
             }
             GeometricActivationFunction::BipolarSigmoid => {
                 bipolar_debug_check((2.0 / (1.0 + (-4.9 * x).exp())) - 1.0)
@@ -62,8 +62,8 @@ impl ActivationFunction for GeometricActivationFunction {
             GeometricActivationFunction::Linear => format!("{}", x),
             GeometricActivationFunction::LinearBipolarClipped => format!("max(-1.0, min(1.0, {}))", x),
             GeometricActivationFunction::Absolute => format!("abs({})", x),
-            GeometricActivationFunction::Gaussian => format!("(exp(-(({}) * 2.5)**2.0)", x),
-            GeometricActivationFunction::BipolarGaussian => format!("2.0 * exp(-(({}) * 2.5)**2.0) - 1.0", x),
+            GeometricActivationFunction::Gaussian => format!("(exp(-((({}) * 2.5)**2.0))", x),
+            GeometricActivationFunction::BipolarGaussian => format!("2.0 * exp(-((({}) * 2.5)**2.0)) - 1.0", x),
             GeometricActivationFunction::BipolarSigmoid => format!("2.0 / (1.0 + exp(-4.9 * ({}))) - 1.0", x),
             GeometricActivationFunction::Sine => format!("sin({})", x),
             GeometricActivationFunction::Cosine => format!("cos({})", x),
