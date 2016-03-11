@@ -55,13 +55,6 @@ pub struct Link<'a, P, T>
 }
 
 #[derive(Clone, Debug)]
-pub enum LinkMode {
-    AbsolutePositions,
-    AbsolutePositionsAndDistance,
-    RelativePositionOfTarget,
-}
-
-#[derive(Clone, Debug)]
 struct LayerLink {
     from_layer: usize,
     to_layer: usize,
@@ -114,7 +107,6 @@ impl<P, T> Substrate<P, T>
 
     pub fn each_link<'a, N, L, EXTID, F>(&'a self,
                                          cppn: &'a mut Cppn<'a, N, L, EXTID>,
-                                         mode: LinkMode,
                                          callback: &mut F)
         where N: CppnNodeType,
               L: Copy + Debug + Send + Sized + Into<f64> + 'a,
@@ -151,27 +143,9 @@ impl<P, T> Substrate<P, T>
 
                     // Calculate the weight between source and target using the CPPN.
 
-                    let outputs_from_cppn = match mode {
-                        LinkMode::AbsolutePositions => {
-                            let inputs_to_cppn = [source.position.coords(),
-                                                  target.position.coords()];
-                            cppn.calculate(&inputs_to_cppn)
-                        }
-                        LinkMode::AbsolutePositionsAndDistance => {
-                            let distance_between: &[_] = &[distance];
-                            let inputs_to_cppn = [source.position.coords(),
-                                                  target.position.coords(),
-                                                  distance_between];
-                            cppn.calculate(&inputs_to_cppn)
-                        }
-                        LinkMode::RelativePositionOfTarget => {
-                            let relative_position_of_target =
-                                source.position.relative_position(&target.position);
-                            let inputs_to_cppn = [source.position.coords(),
-                                                  relative_position_of_target.coords()];
-                            cppn.calculate(&inputs_to_cppn)
-                        }
-                    };
+                    let inputs_to_cppn = [source.position.coords(), target.position.coords()];
+
+                    let outputs_from_cppn = cppn.calculate(&inputs_to_cppn);
 
                     let link = Link {
                         source: source,
