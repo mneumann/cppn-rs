@@ -111,6 +111,11 @@ pub struct Cppn<'a, N, L, EXTID>
     graph: &'a CppnGraph<N, L, EXTID>,
     inputs: Vec<CppnNodeIndex>,
     outputs: Vec<CppnNodeIndex>,
+    start_nodes: Vec<CppnNodeIndex>,
+
+    // nodes array and bitarray used in BFS
+    nodes_bfs: Vec<CppnNodeIndex>,
+    seen_bfs: FixedBitSet,
 
     // For each node in `graph` there exists a corresponding field in `incoming_signals` describing
     // the sum of all input signals for that node.  We could store it inline in the `CppnNode`, but
@@ -126,6 +131,7 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
     pub fn new(graph: &'a CppnGraph<N, L, EXTID>) -> Cppn<'a, N, L, EXTID> {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
+        let mut start_nodes = Vec::new();
 
         graph.each_node_with_index(|node, index| {
             if node.node_type().is_input_node() {
@@ -134,13 +140,22 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
             if node.node_type().is_output_node() {
                 outputs.push(index);
             }
+            if node.in_degree() == 0 {
+                start_nodes.push(index);
+            }
         });
+
+        let incoming_signals: Vec<_> = graph.nodes().iter().map(|_| 0.0).collect();
+        let seen_bfs = FixedBitSet::with_capacity(incoming_signals.len());
 
         Cppn {
             graph: graph,
             inputs: inputs,
             outputs: outputs,
-            incoming_signals: graph.nodes().iter().map(|_| 0.0).collect(),
+            start_nodes: start_nodes,
+            nodes_bfs: Vec::new(),
+            seen_bfs: seen_bfs,
+            incoming_signals: incoming_signals,
         }
     }
 
@@ -156,8 +171,8 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
     /// Forward-propagate the signals starting from `from_nodes`. We use
     /// breadth-first-search (BFS).
-    fn propagate_signals(&mut self, mut nodes: Vec<CppnNodeIndex>, mut seen: FixedBitSet) {
-        while let Some(node_idx) = nodes.pop() {
+    fn propagate_signals(&mut self) {
+        while let Some(node_idx) = self.nodes_bfs.pop() {
             let input = self.incoming_signals[node_idx.index()];
             let output = self.graph.node(node_idx).node_type().calculate(input);
 
@@ -166,9 +181,9 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
                 let out_node = out_node_idx.index();
                 let weight: f64 = weight.into();
                 self.incoming_signals[out_node] += weight * output;
-                if !seen.contains(out_node) {
-                    seen.insert(out_node);
-                    nodes.push(out_node_idx);
+                if !self.seen_bfs.contains(out_node) {
+                    self.seen_bfs.insert(out_node);
+                    self.nodes_bfs.push(out_node_idx);
                 }
             });
         }
@@ -190,19 +205,17 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
         }
         assert!(i == self.inputs.len());
 
-        let mut nodes = Vec::new(); // XXX: worst case capacity
-        let mut seen = FixedBitSet::with_capacity(self.incoming_signals.len());
+        self.nodes_bfs.clear();
+        self.seen_bfs.clear();
 
         // start from all nodes which have zero in_degree()
-        self.graph.each_node_with_index(|node, index| {
-            if node.in_degree() == 0 {
-                nodes.push(index);
-                seen.insert(index.index());
-            }
-        });
+        for &start_node_index in &self.start_nodes {
+            self.nodes_bfs.push(start_node_index);
+            self.seen_bfs.insert(start_node_index.index());
+        }
 
         // propagate the signals starting from the nodes with zero in degree.
-        self.propagate_signals(nodes, seen);
+        self.propagate_signals();
 
         self.outputs
             .iter()
