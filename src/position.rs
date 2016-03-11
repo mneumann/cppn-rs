@@ -7,6 +7,9 @@ pub trait Position {
 
     fn origin() -> Self;
 
+}
+
+pub trait Interpolate {
     /// Linearly interpolates between `self` and `other`.
     /// For t = 0.0 this should return `self`. For t = 1.0 this
     /// should return `other`.
@@ -60,7 +63,9 @@ impl Position for Position2d {
     fn relative_position(&self, other: &Self) -> Self {
         Position2d::new(self.x() - other.x(), self.y() - other.y())
     }
+}
 
+impl Interpolate for Position2d {
     fn interpolate(&self, other: &Self, t: f64) -> Self {
         let x = self.x() * (1.0 - t) + other.x() * t;
         let y = self.y() * (1.0 - t) + other.y() * t;
