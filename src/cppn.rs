@@ -190,7 +190,26 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
     }
 
     /// Calculate all outputs
+
     pub fn calculate(&mut self, inputs: &[&[f64]]) -> Vec<f64> {
+        self.process(inputs);
+        (0..self.outputs.len()).into_iter().map(|i| self.read_output(i).unwrap()).collect()
+    }
+
+    /// Reads the `nth_output` of the network.
+
+    pub fn read_output(&self, nth_output: usize) -> Option<f64> {
+        self.outputs.get(nth_output).map(|&node_idx| {
+            let input = self.incoming_signals[node_idx.index()];
+            let output = self.graph.node(node_idx).node_type().calculate(input);
+            output
+        })
+    }
+
+    /// Process the network for the given `inputs`. Outputs can be read after this call using
+    /// `read_output`.
+
+    pub fn process(&mut self, inputs: &[&[f64]]) {
         assert!(self.incoming_signals.len() == self.graph.nodes().len());
         self.reset_signals();
 
@@ -216,15 +235,6 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
         // propagate the signals starting from the nodes with zero in degree.
         self.propagate_signals();
-
-        self.outputs
-            .iter()
-            .map(|&node_idx| {
-                let input = self.incoming_signals[node_idx.index()];
-                let output = self.graph.node(node_idx).node_type().calculate(input);
-                output
-            })
-            .collect()
     }
 }
 
