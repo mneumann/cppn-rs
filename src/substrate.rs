@@ -56,14 +56,14 @@ pub struct Link<'a, P, T>
     pub source_idx: (usize, usize), // (layer, node)
     pub target_idx: (usize, usize), // (layer, node)
     pub outputs: Vec<f64>,
-    pub distance: f64,
+    pub distance_square: f64,
 }
 
 #[derive(Clone, Debug)]
 struct LayerLink {
     from_layer: usize,
     to_layer: usize,
-    max_distance: Option<f64>,
+    max_distance_square: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -98,11 +98,11 @@ impl<P, T> Substrate<P, T>
     pub fn add_layer_link(&mut self,
                           from_layer: usize,
                           to_layer: usize,
-                          max_distance: Option<f64>) {
+                          max_distance_square: Option<f64>) {
         self.layer_links.push(LayerLink {
             from_layer: from_layer,
             to_layer: to_layer,
-            max_distance: max_distance,
+            max_distance_square: max_distance_square,
         });
     }
 
@@ -123,7 +123,7 @@ impl<P, T> Substrate<P, T>
                                             .enumerate() {
                 // Reject invalid connections.
                 match source.node_connectivity {
-                    NodeConnectivity::Out | NodeConnectivity::InOut => {} 
+                    NodeConnectivity::Out | NodeConnectivity::InOut => {}
                     NodeConnectivity::In => {
                         // Node does not allow outgoing connections
                         continue;
@@ -136,18 +136,18 @@ impl<P, T> Substrate<P, T>
                                                 .enumerate() {
                     // Reject invalid connections.
                     match target.node_connectivity {
-                        NodeConnectivity::In | NodeConnectivity::InOut => {} 
+                        NodeConnectivity::In | NodeConnectivity::InOut => {}
                         NodeConnectivity::Out => {
                             // Node does not allow incoming connections
                             continue;
                         }
                     }
 
-                    let distance = source.position.distance(&target.position);
+                    let distance_sq = source.position.distance_square(&target.position);
 
-                    // reject a pair of nodes based on `max_distance`.
-                    if let Some(max_d) = layer_link.max_distance {
-                        if distance > max_d {
+                    // reject a pair of nodes based on `max_distance_square`.
+                    if let Some(max_d_sq) = layer_link.max_distance_square {
+                        if distance_sq > max_d_sq {
                             continue;
                         }
                     }
@@ -164,7 +164,7 @@ impl<P, T> Substrate<P, T>
                         source_idx: (layer_link.from_layer, source_idx),
                         target_idx: (layer_link.to_layer, target_idx),
                         outputs: outputs_from_cppn,
-                        distance: distance,
+                        distance_square: distance_sq,
                     };
                     callback(link);
                 }
