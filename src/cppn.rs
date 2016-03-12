@@ -206,6 +206,18 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
         })
     }
 
+    /// Returns the number of outputs
+
+    pub fn output_count(&self) -> usize {
+        self.outputs.len()
+    }
+
+    /// Returns the number of inputs
+
+    pub fn input_count(&self) -> usize {
+        self.inputs.len()
+    }
+
     /// Process the network for the given `inputs`. Outputs can be read after this call using
     /// `read_output`.
 
