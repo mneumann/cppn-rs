@@ -1,29 +1,33 @@
 use position::Position;
 use cppn::{Cppn, CppnNodeType};
-use acyclic_network::NodeType;
 use std::fmt::Debug;
+
+#[derive(Debug, Copy, Clone)]
+pub enum NodeConnectivity {
+    In,
+    Out,
+    InOut
+}
 
 /// Represents a node in the substrate. `T` stores additional information about that node.
 #[derive(Clone, Debug)]
 pub struct Node<P, T>
     where P: Position,
-          T: NodeType
 {
     pub position: P,
-    pub node_type: T,
+    pub node_info: T,
+    pub node_connectivity: NodeConnectivity
 }
 
 #[derive(Clone, Debug)]
 pub struct Layer<P, T>
     where P: Position,
-          T: NodeType
 {
     nodes: Vec<Node<P, T>>,
 }
 
 impl<P, T> Layer<P, T>
     where P: Position,
-          T: NodeType
 {
     pub fn new() -> Self {
         Layer { nodes: Vec::new() }
@@ -33,10 +37,11 @@ impl<P, T> Layer<P, T>
         &self.nodes
     }
 
-    pub fn add_node(&mut self, position: P, node_type: T) {
+    pub fn add_node(&mut self, position: P, node_info: T, node_connectivity: NodeConnectivity) {
         self.nodes.push(Node {
             position: position,
-            node_type: node_type,
+            node_info: node_info,
+            node_connectivity: node_connectivity,
         });
     }
 }
@@ -44,7 +49,7 @@ impl<P, T> Layer<P, T>
 #[derive(Clone)]
 pub struct Link<'a, P, T>
     where P: Position + 'a,
-          T: NodeType + 'a
+          T: 'a
 {
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
@@ -64,7 +69,6 @@ struct LayerLink {
 #[derive(Clone, Debug)]
 pub struct Substrate<P, T>
     where P: Position,
-          T: NodeType
 {
     layers: Vec<Layer<P, T>>,
     layer_links: Vec<LayerLink>,
@@ -73,7 +77,6 @@ pub struct Substrate<P, T>
 
 impl<P, T> Substrate<P, T>
     where P: Position,
-          T: NodeType
 {
     pub fn new() -> Self {
         Substrate {
@@ -119,8 +122,12 @@ impl<P, T> Substrate<P, T>
                                             .iter()
                                             .enumerate() {
                 // Reject invalid connections.
-                if !source.node_type.accept_outgoing_links() {
-                    continue;
+                match source.node_connectivity {
+                    NodeConnectivity::Out | NodeConnectivity::InOut => {} 
+                    NodeConnectivity::In => {
+                        // Node does not allow outgoing connections
+                        continue;
+                    }
                 }
 
                 for (target_idx, target) in self.layers[layer_link.to_layer]
@@ -128,8 +135,12 @@ impl<P, T> Substrate<P, T>
                                                 .iter()
                                                 .enumerate() {
                     // Reject invalid connections.
-                    if !target.node_type.accept_incoming_links() {
-                        continue;
+                    match target.node_connectivity {
+                        NodeConnectivity::In | NodeConnectivity::InOut => {} 
+                        NodeConnectivity::Out => {
+                            // Node does not allow incoming connections
+                            continue;
+                        }
                     }
 
                     let distance = source.position.distance(&target.position);
