@@ -9,7 +9,7 @@ pub trait CppnNodeType: NodeType + ActivationFunction {
     fn is_output_node(&self) -> bool;
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CppnNodeKind {
     Bias,
     Input,
@@ -18,7 +18,7 @@ pub enum CppnNodeKind {
 }
 
 /// A concrete implementation of a CppnNodeType.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CppnNode<A: ActivationFunction> {
     pub kind: CppnNodeKind,
     pub activation_function: A,

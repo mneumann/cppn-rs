@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub trait ActivationFunction: Clone + Debug + Send + Sized {
+pub trait ActivationFunction: Clone + Debug + Send + Sized + PartialEq + Eq {
     fn formula_gnuplot(&self, x: String) -> String;
 
     fn calculate(&self, x: f64) -> f64;
@@ -23,7 +23,7 @@ fn bipolar_clip(x: f64) -> f64 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GeometricActivationFunction {
     Linear,
     LinearBipolarClipped,
