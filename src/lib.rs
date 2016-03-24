@@ -1,3 +1,5 @@
+#![feature(associated_consts)]
+
 #[cfg(test)]
 extern crate rand;
 extern crate acyclic_network;

@@ -1,6 +1,7 @@
 /// Represents a position within a substrate.
 /// Each position coordinate is mapped to an input of a CPPN.
 pub trait Position {
+    const DIMENSIONS: usize;
     fn coords(&self) -> &[f64];
     fn distance_square(&self, other: &Self) -> f64;
     fn distance(&self, other: &Self) -> f64 {
@@ -43,6 +44,7 @@ impl Position2d {
 }
 
 impl Position for Position2d {
+    const DIMENSIONS: usize = 2;
     #[inline(always)]
     fn coords(&self) -> &[f64] {
         &self.0
@@ -106,6 +108,8 @@ impl Position3d {
 }
 
 impl Position for Position3d {
+    const DIMENSIONS: usize = 3;
+
     #[inline(always)]
     fn coords(&self) -> &[f64] {
         &self.0
