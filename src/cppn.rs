@@ -248,6 +248,78 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
         // propagate the signals starting from the nodes with zero in degree.
         self.propagate_signals();
     }
+
+    /// Group the nodes into layers.
+    pub fn group_layers(&self) -> Vec<Vec<usize>> {
+        let ranks = self.layout();
+        let mut pairs: Vec<(usize, usize)> = ranks.iter().enumerate().map(|(nodei, &rank)| (rank, nodei)).collect();
+        pairs.sort_by_key(|p| p.0);
+        pairs.reverse();
+
+        let mut layers = Vec::new();
+
+        let (mut current_rank, first_node) = pairs.pop().unwrap();
+        let mut layer = vec![first_node];
+
+        while let Some((rank, nodei)) = pairs.pop() {
+            assert!(rank >= current_rank);
+            if rank == current_rank {
+                layer.push(nodei);
+            } else {
+                assert!(layer.len() > 0);
+                layers.push(layer);
+                layer = vec![nodei];
+                current_rank = rank;
+            }
+        }
+        assert!(layer.len() > 0);
+        layers.push(layer);
+
+        for layer in layers.iter_mut() {
+            layer.sort();
+        }
+
+        layers
+    }
+
+    pub fn layout(&self) -> Vec<usize> {
+        // each node has a rank (layer). All start initially 0 (same layer)
+        let max_rank = self.graph.nodes().len() + 1; 
+        let mut ranks: Vec<usize> = self.graph
+                                       .nodes()
+                                       .iter()
+                                       .map(|node| {
+                                           if node.node_type().is_input_node() {
+                                               0
+                                           } else if node.node_type().is_output_node() {
+                                               max_rank
+                                           } else {
+                                               1
+                                           }
+                                       })
+                                       .collect();
+
+        loop {
+            let mut changed = false;
+
+            self.graph.each_node_with_index(|_node, index| {
+                // make sure that the rank of all dependent links of a node are > the nodes rank
+                self.graph.each_active_forward_link_of_node(index, |out_node_idx, _weight| {
+                    let src_rank = ranks[index.index()];
+                    let dst_rank = ranks[out_node_idx.index()];
+                    if dst_rank <= src_rank {
+                        ranks[out_node_idx.index()] = src_rank + 1;
+                        changed = true;
+                    }
+                });
+            });
+
+            if !changed {
+                break;
+            }
+        }
+        ranks
+    }
 }
 
 #[cfg(test)]
@@ -345,4 +417,43 @@ mod tests {
         assert_eq!(false, link.is_some());
     }
 
+    #[test]
+    fn test_layout() {
+        let mut g = CppnGraph::new();
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let h1 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let h2 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let o1 = g.add_node(CppnNode::output(AF::Constant1), ExternalId(3));
+        g.add_link(i1, h1, 0.5, ExternalId(1));
+        g.add_link(h1, o1, 1.0, ExternalId(2));
+
+        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+
+        g.add_link(i1, h2, 0.5, ExternalId(1));
+        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+        g.add_link(h2, o1, 0.5, ExternalId(1));
+        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+        g.add_link(h2, h1, 0.5, ExternalId(1));
+        assert_eq!(vec![0,2,1,5], Cppn::new(&g).layout());
+    }
+
+    #[test]
+    fn test_group_layers() {
+        let mut g = CppnGraph::new();
+        let i1 = g.add_node(CppnNode::input(AF::Linear), ExternalId(1));
+        let h1 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let h2 = g.add_node(CppnNode::hidden(AF::Linear), ExternalId(2));
+        let o1 = g.add_node(CppnNode::output(AF::Constant1), ExternalId(3));
+        g.add_link(i1, h1, 0.5, ExternalId(1));
+        g.add_link(h1, o1, 1.0, ExternalId(2));
+
+        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+
+        g.add_link(i1, h2, 0.5, ExternalId(1));
+        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+        g.add_link(h2, o1, 0.5, ExternalId(1));
+        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+        g.add_link(h2, h1, 0.5, ExternalId(1));
+        assert_eq!(vec![vec![0], vec![2], vec![1], vec![3]], Cppn::new(&g).group_layers());
+    }
 }
