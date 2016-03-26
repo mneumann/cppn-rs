@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::f64::consts::PI;
 
 pub trait ActivationFunction: Clone + Debug + Send + Sized + PartialEq + Eq {
     fn formula_gnuplot(&self, x: String) -> String;
@@ -51,8 +52,8 @@ impl ActivationFunction for GeometricActivationFunction {
             GeometricActivationFunction::BipolarSigmoid => {
                 bipolar_debug_check((2.0 / (1.0 + (-4.9 * x).exp())) - 1.0)
             }
-            GeometricActivationFunction::Sine => bipolar_debug_check(x.sin()),
-            GeometricActivationFunction::Cosine => bipolar_debug_check(x.cos()),
+            GeometricActivationFunction::Sine => bipolar_debug_check((2.0*PI*x).sin()),
+            GeometricActivationFunction::Cosine => bipolar_debug_check(2.0*PI*x.cos()),
             GeometricActivationFunction::Constant1 => 1.0,
         }
     }
