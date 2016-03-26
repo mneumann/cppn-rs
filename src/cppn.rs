@@ -169,6 +169,10 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
         }
     }
 
+    pub fn incoming_signals(&self) -> &[f64] {
+        &self.incoming_signals
+    }
+
     /// Forward-propagate the signals starting from `from_nodes`. We use
     /// breadth-first-search (BFS).
     fn propagate_signals(&mut self) {
