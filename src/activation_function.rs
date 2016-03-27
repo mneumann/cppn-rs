@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 
 pub trait ActivationFunction: Clone + Debug + Send + Sized + PartialEq + Eq {
     fn formula_gnuplot(&self, x: String) -> String;
-
+    fn name(&self) -> String;
     fn calculate(&self, x: f64) -> f64;
 }
 
@@ -70,6 +70,20 @@ impl ActivationFunction for GeometricActivationFunction {
             GeometricActivationFunction::Cosine => format!("cos({})", x),
             GeometricActivationFunction::Constant1 => format!("1.0"),
         }
+    }
+
+    fn name(&self) -> String {
+        match *self {
+            GeometricActivationFunction::Linear => "Linear",
+            GeometricActivationFunction::LinearBipolarClipped => "LinearBipolarClipped",
+            GeometricActivationFunction::Absolute => "Absolute",
+            GeometricActivationFunction::Gaussian => "Gaussian",
+            GeometricActivationFunction::BipolarGaussian => "BipolarGaussian",
+            GeometricActivationFunction::BipolarSigmoid =>  "BipolarSigmoid",
+            GeometricActivationFunction::Sine => "Sine",
+            GeometricActivationFunction::Cosine => "Consine",
+            GeometricActivationFunction::Constant1 => "1.0",
+        }.to_string()
     }
 }
 

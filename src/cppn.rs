@@ -61,6 +61,10 @@ impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
         }
     }
 
+    fn name(&self) -> String {
+        self.activation_function.name()
+    }
+
     fn calculate(&self, input: f64) -> f64 {
         self.activation_function.calculate(input)
     }
