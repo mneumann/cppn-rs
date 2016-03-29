@@ -28,6 +28,7 @@ fn bipolar_clip(x: f64) -> f64 {
 pub enum GeometricActivationFunction {
     Linear,
     LinearBipolarClipped,
+    LinearClipped,
     Absolute,
     Gaussian,
     BipolarGaussian,
@@ -42,6 +43,7 @@ impl ActivationFunction for GeometricActivationFunction {
         match *self {
             GeometricActivationFunction::Linear => x,
             GeometricActivationFunction::LinearBipolarClipped => bipolar_debug_check(bipolar_clip(x)),
+            GeometricActivationFunction::LinearClipped => x.min(1.0).max(0.0),
             GeometricActivationFunction::Absolute => x.abs(),
             GeometricActivationFunction::Gaussian => {
                 (-((x * 2.5).powi(2))).exp()
@@ -62,6 +64,7 @@ impl ActivationFunction for GeometricActivationFunction {
         match *self {
             GeometricActivationFunction::Linear => format!("{}", x),
             GeometricActivationFunction::LinearBipolarClipped => format!("max(-1.0, min(1.0, {}))", x),
+            GeometricActivationFunction::LinearClipped => format!("max(0.0, min(1.0, {}))", x),
             GeometricActivationFunction::Absolute => format!("abs({})", x),
             GeometricActivationFunction::Gaussian => format!("(exp(-((({}) * 2.5)**2.0))", x),
             GeometricActivationFunction::BipolarGaussian => format!("2.0 * exp(-((({}) * 2.5)**2.0)) - 1.0", x),
@@ -76,6 +79,7 @@ impl ActivationFunction for GeometricActivationFunction {
         match *self {
             GeometricActivationFunction::Linear => "Linear",
             GeometricActivationFunction::LinearBipolarClipped => "LinearBipolarClipped",
+            GeometricActivationFunction::LinearClipped => "LinearClipped",
             GeometricActivationFunction::Absolute => "Absolute",
             GeometricActivationFunction::Gaussian => "Gaussian",
             GeometricActivationFunction::BipolarGaussian => "BipolarGaussian",
@@ -98,6 +102,18 @@ fn test_bipolar_linear_clipped() {
     assert_eq!(1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(1.1));
     assert_eq!(-1.0, GeometricActivationFunction::LinearBipolarClipped.calculate(-1.1));
 }
+
+#[test]
+fn test_linear_clipped() {
+    assert_eq!(0.0, GeometricActivationFunction::LinearClipped.calculate(0.0));
+    assert_eq!(1.0, GeometricActivationFunction::LinearClipped.calculate(1.0));
+    assert_eq!(0.0, GeometricActivationFunction::LinearClipped.calculate(-1.0));
+    assert_eq!(0.5, GeometricActivationFunction::LinearClipped.calculate(0.5));
+    assert_eq!(0.0, GeometricActivationFunction::LinearClipped.calculate(-0.5));
+    assert_eq!(1.0, GeometricActivationFunction::LinearClipped.calculate(1.1));
+    assert_eq!(0.0, GeometricActivationFunction::LinearClipped.calculate(-1.1));
+}
+
 
 #[test]
 fn test_constant1() {
