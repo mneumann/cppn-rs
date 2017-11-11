@@ -25,7 +25,8 @@ pub struct CppnNode<A: ActivationFunction> {
 }
 
 impl<A> CppnNode<A>
-    where A: ActivationFunction
+where
+    A: ActivationFunction,
 {
     pub fn new(kind: CppnNodeKind, activation_function: A) -> Self {
         CppnNode {
@@ -54,9 +55,7 @@ impl<A> CppnNode<A>
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
     fn formula_gnuplot(&self, x: String) -> String {
         match self.kind {
-            CppnNodeKind::Input |
-            CppnNodeKind::Output |
-            CppnNodeKind::Hidden |
+            CppnNodeKind::Input | CppnNodeKind::Output | CppnNodeKind::Hidden |
             CppnNodeKind::Bias => self.activation_function.formula_gnuplot(x),
         }
     }
@@ -101,16 +100,17 @@ impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     }
 }
 
-pub type CppnGraph<N, L, EXTID>
-    where N: CppnNodeType,
-          L: Copy + Debug + Send + Sized + Into<f64>,
-          EXTID: Copy + Debug + Send + Sized + Ord = Network<N, L, EXTID>;
+pub type CppnGraph<N, L, EXTID> where
+    N: CppnNodeType,
+    L: Copy + Debug + Send + Sized + Into<f64>,
+    EXTID: Copy + Debug + Send + Sized + Ord = Network<N, L, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
 pub struct Cppn<'a, N, L, EXTID>
-    where N: CppnNodeType + 'a,
-          L: Copy + Debug + Send + Sized + Into<f64> + 'a,
-          EXTID: Copy + Debug + Send + Sized + Ord + 'a
+where
+    N: CppnNodeType + 'a,
+    L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+    EXTID: Copy + Debug + Send + Sized + Ord + 'a,
 {
     graph: &'a CppnGraph<N, L, EXTID>,
     inputs: Vec<CppnNodeIndex>,
@@ -128,9 +128,10 @@ pub struct Cppn<'a, N, L, EXTID>
 }
 
 impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
-    where N: CppnNodeType + 'a,
-          L: Copy + Debug + Send + Sized + Into<f64> + 'a,
-          EXTID: Copy + Debug + Send + Sized + Ord + 'a
+where
+    N: CppnNodeType + 'a,
+    L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+    EXTID: Copy + Debug + Send + Sized + Ord + 'a,
 {
     pub fn new(graph: &'a CppnGraph<N, L, EXTID>) -> Cppn<'a, N, L, EXTID> {
         let mut inputs = Vec::new();
@@ -185,15 +186,18 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
             let output = self.graph.node(node_idx).node_type().calculate(input);
 
             // propagate output signal to outgoing links.
-            self.graph.each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
-                let out_node = out_node_idx.index();
-                let weight: f64 = weight.into();
-                self.incoming_signals[out_node] += weight * output;
-                if !self.seen_bfs.contains(out_node) {
-                    self.seen_bfs.insert(out_node);
-                    self.nodes_bfs.push(out_node_idx);
-                }
-            });
+            self.graph.each_active_forward_link_of_node(
+                node_idx,
+                |out_node_idx, weight| {
+                    let out_node = out_node_idx.index();
+                    let weight: f64 = weight.into();
+                    self.incoming_signals[out_node] += weight * output;
+                    if !self.seen_bfs.contains(out_node) {
+                        self.seen_bfs.insert(out_node);
+                        self.nodes_bfs.push(out_node_idx);
+                    }
+                },
+            );
         }
     }
 
@@ -201,7 +205,10 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
     pub fn calculate(&mut self, inputs: &[&[f64]]) -> Vec<f64> {
         self.process(inputs);
-        (0..self.outputs.len()).into_iter().map(|i| self.read_output(i).unwrap()).collect()
+        (0..self.outputs.len())
+            .into_iter()
+            .map(|i| self.read_output(i).unwrap())
+            .collect()
     }
 
     /// Reads the `nth_output` of the network.
@@ -260,7 +267,11 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
     /// Group the nodes into layers.
     pub fn group_layers(&self) -> Vec<Vec<usize>> {
         let ranks = self.layout();
-        let mut pairs: Vec<(usize, usize)> = ranks.iter().enumerate().map(|(nodei, &rank)| (rank, nodei)).collect();
+        let mut pairs: Vec<(usize, usize)> = ranks
+            .iter()
+            .enumerate()
+            .map(|(nodei, &rank)| (rank, nodei))
+            .collect();
         pairs.sort_by_key(|p| p.0);
         pairs.reverse();
 
@@ -292,34 +303,35 @@ impl<'a, N, L, EXTID> Cppn<'a, N, L, EXTID>
 
     pub fn layout(&self) -> Vec<usize> {
         // each node has a rank (layer). All start initially 0 (same layer)
-        let max_rank = self.graph.nodes().len() + 1; 
+        let max_rank = self.graph.nodes().len() + 1;
         let mut ranks: Vec<usize> = self.graph
-                                       .nodes()
-                                       .iter()
-                                       .map(|node| {
-                                           if node.node_type().is_input_node() {
-                                               0
-                                           } else if node.node_type().is_output_node() {
-                                               max_rank
-                                           } else {
-                                               1
-                                           }
-                                       })
-                                       .collect();
+            .nodes()
+            .iter()
+            .map(|node| if node.node_type().is_input_node() {
+                0
+            } else if node.node_type().is_output_node() {
+                max_rank
+            } else {
+                1
+            })
+            .collect();
 
         loop {
             let mut changed = false;
 
             self.graph.each_node_with_index(|_node, index| {
                 // make sure that the rank of all dependent links of a node are > the nodes rank
-                self.graph.each_active_forward_link_of_node(index, |out_node_idx, _weight| {
-                    let src_rank = ranks[index.index()];
-                    let dst_rank = ranks[out_node_idx.index()];
-                    if dst_rank <= src_rank {
-                        ranks[out_node_idx.index()] = src_rank + 1;
-                        changed = true;
-                    }
-                });
+                self.graph.each_active_forward_link_of_node(
+                    index,
+                    |out_node_idx, _weight| {
+                        let src_rank = ranks[index.index()];
+                        let dst_rank = ranks[out_node_idx.index()];
+                        if dst_rank <= src_rank {
+                            ranks[out_node_idx.index()] = src_rank + 1;
+                            changed = true;
+                        }
+                    },
+                );
             });
 
             if !changed {
@@ -435,14 +447,14 @@ mod tests {
         g.add_link(i1, h1, 0.5, ExternalId(1));
         g.add_link(h1, o1, 1.0, ExternalId(2));
 
-        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+        assert_eq!(vec![0, 1, 1, 5], Cppn::new(&g).layout());
 
         g.add_link(i1, h2, 0.5, ExternalId(1));
-        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+        assert_eq!(vec![0, 1, 1, 5], Cppn::new(&g).layout());
         g.add_link(h2, o1, 0.5, ExternalId(1));
-        assert_eq!(vec![0,1,1,5], Cppn::new(&g).layout());
+        assert_eq!(vec![0, 1, 1, 5], Cppn::new(&g).layout());
         g.add_link(h2, h1, 0.5, ExternalId(1));
-        assert_eq!(vec![0,2,1,5], Cppn::new(&g).layout());
+        assert_eq!(vec![0, 2, 1, 5], Cppn::new(&g).layout());
     }
 
     #[test]
@@ -455,13 +467,25 @@ mod tests {
         g.add_link(i1, h1, 0.5, ExternalId(1));
         g.add_link(h1, o1, 1.0, ExternalId(2));
 
-        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+        assert_eq!(
+            vec![vec![0], vec![1, 2], vec![3]],
+            Cppn::new(&g).group_layers()
+        );
 
         g.add_link(i1, h2, 0.5, ExternalId(1));
-        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+        assert_eq!(
+            vec![vec![0], vec![1, 2], vec![3]],
+            Cppn::new(&g).group_layers()
+        );
         g.add_link(h2, o1, 0.5, ExternalId(1));
-        assert_eq!(vec![vec![0], vec![1,2], vec![3]], Cppn::new(&g).group_layers());
+        assert_eq!(
+            vec![vec![0], vec![1, 2], vec![3]],
+            Cppn::new(&g).group_layers()
+        );
         g.add_link(h2, h1, 0.5, ExternalId(1));
-        assert_eq!(vec![vec![0], vec![2], vec![1], vec![3]], Cppn::new(&g).group_layers());
+        assert_eq!(
+            vec![vec![0], vec![2], vec![1], vec![3]],
+            Cppn::new(&g).group_layers()
+        );
     }
 }

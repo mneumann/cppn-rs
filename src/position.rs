@@ -47,7 +47,9 @@ impl Position2d {
 
 impl Position for Position2d {
     #[inline(always)]
-    fn dims() -> usize { 2 }
+    fn dims() -> usize {
+        2
+    }
 
     #[inline(always)]
     fn coords(&self) -> &[f64] {
@@ -113,7 +115,9 @@ impl Position3d {
 
 impl Position for Position3d {
     #[inline(always)]
-    fn dims() -> usize { 3 }
+    fn dims() -> usize {
+        3
+    }
 
     #[inline(always)]
     fn coords(&self) -> &[f64] {
@@ -128,23 +132,33 @@ impl Position for Position3d {
     #[inline]
     fn distance_square(&self, other: &Self) -> f64 {
         (self.x() - other.x()).powi(2) + (self.y() - other.y()).powi(2) +
-        (self.z() - other.z()).powi(2)
+            (self.z() - other.z()).powi(2)
     }
 }
 
 #[test]
 fn test_position3d_distance() {
     assert_eq!(0.0, Position3d::origin().distance(&Position3d::origin()));
-    assert_eq!(1.0,
-               Position3d::origin().distance(&Position3d::new(1.0, 0.0, 0.0)));
-    assert_eq!(2.0,
-               Position3d::origin().distance(&Position3d::new(2.0, 0.0, 0.0)));
-    assert_eq!((2.0f64).sqrt(),
-               Position3d::origin().distance(&Position3d::new(1.0, 0.0, 1.0)));
-    assert_eq!((2.0f64).sqrt(),
-               Position3d::origin().distance(&Position3d::new(1.0, 0.0, -1.0)));
-    assert_eq!((2.0f64).sqrt(),
-               Position3d::origin().distance(&Position3d::new(-1.0, 0.0, -1.0)));
+    assert_eq!(
+        1.0,
+        Position3d::origin().distance(&Position3d::new(1.0, 0.0, 0.0))
+    );
+    assert_eq!(
+        2.0,
+        Position3d::origin().distance(&Position3d::new(2.0, 0.0, 0.0))
+    );
+    assert_eq!(
+        (2.0f64).sqrt(),
+        Position3d::origin().distance(&Position3d::new(1.0, 0.0, 1.0))
+    );
+    assert_eq!(
+        (2.0f64).sqrt(),
+        Position3d::origin().distance(&Position3d::new(1.0, 0.0, -1.0))
+    );
+    assert_eq!(
+        (2.0f64).sqrt(),
+        Position3d::origin().distance(&Position3d::new(-1.0, 0.0, -1.0))
+    );
 }
 
 #[test]
@@ -172,10 +186,16 @@ fn test_interpolate_multi() {
     let a = Position2d::new(-1.0, 1.0);
     let b = Position2d::new(1.0, -1.0);
 
-    assert_eq!((-1.0, -1.0),
-               a.interpolate_multi(&b, &Position2d::new(0.0, 1.0)).xy());
-    assert_eq!((0.0, 0.0),
-               a.interpolate_multi(&b, &Position2d::new(0.5, 0.5)).xy());
-    assert_eq!((1.0, 1.0),
-               a.interpolate_multi(&b, &Position2d::new(1.0, 0.0)).xy());
+    assert_eq!(
+        (-1.0, -1.0),
+        a.interpolate_multi(&b, &Position2d::new(0.0, 1.0)).xy()
+    );
+    assert_eq!(
+        (0.0, 0.0),
+        a.interpolate_multi(&b, &Position2d::new(0.5, 0.5)).xy()
+    );
+    assert_eq!(
+        (1.0, 1.0),
+        a.interpolate_multi(&b, &Position2d::new(1.0, 0.0)).xy()
+    );
 }

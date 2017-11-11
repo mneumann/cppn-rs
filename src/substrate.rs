@@ -6,28 +6,31 @@ use std::fmt::Debug;
 pub enum NodeConnectivity {
     In,
     Out,
-    InOut
+    InOut,
 }
 
 /// Represents a node in the substrate. `T` stores additional information about that node.
 #[derive(Clone, Debug)]
 pub struct Node<P, T>
-    where P: Position,
+where
+    P: Position,
 {
     pub position: P,
     pub node_info: T,
-    pub node_connectivity: NodeConnectivity
+    pub node_connectivity: NodeConnectivity,
 }
 
 #[derive(Clone, Debug)]
 pub struct Layer<P, T>
-    where P: Position,
+where
+    P: Position,
 {
     nodes: Vec<Node<P, T>>,
 }
 
 impl<P, T> Layer<P, T>
-    where P: Position,
+where
+    P: Position,
 {
     pub fn new() -> Self {
         Layer { nodes: Vec::new() }
@@ -48,8 +51,9 @@ impl<P, T> Layer<P, T>
 
 #[derive(Clone)]
 pub struct Link<'a, P, T>
-    where P: Position + 'a,
-          T: 'a
+where
+    P: Position + 'a,
+    T: 'a,
 {
     pub source: &'a Node<P, T>,
     pub target: &'a Node<P, T>,
@@ -68,7 +72,8 @@ struct LayerLink {
 
 #[derive(Clone, Debug)]
 pub struct Substrate<P, T>
-    where P: Position,
+where
+    P: Position,
 {
     layers: Vec<Layer<P, T>>,
     layer_links: Vec<LayerLink>,
@@ -76,7 +81,8 @@ pub struct Substrate<P, T>
 
 
 impl<P, T> Substrate<P, T>
-    where P: Position,
+where
+    P: Position,
 {
     pub fn new() -> Self {
         Substrate {
@@ -95,10 +101,12 @@ impl<P, T> Substrate<P, T>
         return layer_idx;
     }
 
-    pub fn add_layer_link(&mut self,
-                          from_layer: usize,
-                          to_layer: usize,
-                          max_distance_square: Option<f64>) {
+    pub fn add_layer_link(
+        &mut self,
+        from_layer: usize,
+        to_layer: usize,
+        max_distance_square: Option<f64>,
+    ) {
         self.layer_links.push(LayerLink {
             from_layer: from_layer,
             to_layer: to_layer,
@@ -108,19 +116,20 @@ impl<P, T> Substrate<P, T>
 
     /// Iterate over all produced links of Cppn.
 
-    pub fn each_link<'a, N, L, EXTID, F>(&'a self,
-                                         cppn: &'a mut Cppn<'a, N, L, EXTID>,
-                                         callback: &mut F)
-        where N: CppnNodeType,
-              L: Copy + Debug + Send + Sized + Into<f64> + 'a,
-              EXTID: Copy + Debug + Send + Sized + Ord + 'a,
-              F: FnMut(Link<'a, P, T>)
+    pub fn each_link<'a, N, L, EXTID, F>(
+        &'a self,
+        cppn: &'a mut Cppn<'a, N, L, EXTID>,
+        callback: &mut F,
+    ) where
+        N: CppnNodeType,
+        L: Copy + Debug + Send + Sized + Into<f64> + 'a,
+        EXTID: Copy + Debug + Send + Sized + Ord + 'a,
+        F: FnMut(Link<'a, P, T>),
     {
         for layer_link in self.layer_links.iter() {
-            for (source_idx, source) in self.layers[layer_link.from_layer]
-                                            .nodes
-                                            .iter()
-                                            .enumerate() {
+            for (source_idx, source) in
+                self.layers[layer_link.from_layer].nodes.iter().enumerate()
+            {
                 // Reject invalid connections.
                 match source.node_connectivity {
                     NodeConnectivity::Out | NodeConnectivity::InOut => {}
@@ -130,10 +139,9 @@ impl<P, T> Substrate<P, T>
                     }
                 }
 
-                for (target_idx, target) in self.layers[layer_link.to_layer]
-                                                .nodes
-                                                .iter()
-                                                .enumerate() {
+                for (target_idx, target) in
+                    self.layers[layer_link.to_layer].nodes.iter().enumerate()
+                {
                     // Reject invalid connections.
                     match target.node_connectivity {
                         NodeConnectivity::In | NodeConnectivity::InOut => {}
