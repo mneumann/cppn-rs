@@ -1,6 +1,6 @@
 [package]
 name = "cppn"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Michael Neumann <mneumann@ntecs.de>"]
 license = "MIT"
 repository = "https://github.com/mneumann/cppn-rs"
@@ -11,8 +11,8 @@ include = ["src/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
 
-acyclic-network = "0.0.1"
-fixedbitset = "0.1.0"
+acyclic-network = "0.1"
+fixedbitset = "0.1"
 
 [dev-dependencies]
 
