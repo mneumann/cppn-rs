@@ -25,6 +25,7 @@ fn bipolar_clip(x: f64) -> f64 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum GeometricActivationFunction {
     Linear,
     LinearBipolarClipped,
