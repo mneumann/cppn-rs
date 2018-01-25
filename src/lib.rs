@@ -1,7 +1,7 @@
-#[cfg(test)]
-extern crate rand;
 extern crate acyclic_network;
 extern crate fixedbitset;
+#[cfg(test)]
+extern crate rand;
 
 #[cfg(feature = "serde")]
 #[macro_use]

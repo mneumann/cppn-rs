@@ -1,5 +1,5 @@
 use activation_function::ActivationFunction;
-use acyclic_network::{NodeType, Network};
+use acyclic_network::{Network, NodeType};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -55,8 +55,10 @@ where
 impl<A: ActivationFunction> ActivationFunction for CppnNode<A> {
     fn formula_gnuplot(&self, x: String) -> String {
         match self.kind {
-            CppnNodeKind::Input | CppnNodeKind::Output | CppnNodeKind::Hidden |
-            CppnNodeKind::Bias => self.activation_function.formula_gnuplot(x),
+            CppnNodeKind::Input
+            | CppnNodeKind::Output
+            | CppnNodeKind::Hidden
+            | CppnNodeKind::Bias => self.activation_function.formula_gnuplot(x),
         }
     }
 
@@ -100,10 +102,12 @@ impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     }
 }
 
-pub type CppnGraph<N, L, EXTID> where
+pub type CppnGraph<N, L, EXTID>
+where
     N: CppnNodeType,
     L: Copy + Debug + Send + Sized + Into<f64>,
-    EXTID: Copy + Debug + Send + Sized + Ord = Network<N, L, EXTID>;
+    EXTID: Copy + Debug + Send + Sized + Ord,
+= Network<N, L, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
 pub struct Cppn<'a, N, L, EXTID>
@@ -186,9 +190,8 @@ where
             let output = self.graph.node(node_idx).node_type().calculate(input);
 
             // propagate output signal to outgoing links.
-            self.graph.each_active_forward_link_of_node(
-                node_idx,
-                |out_node_idx, weight| {
+            self.graph
+                .each_active_forward_link_of_node(node_idx, |out_node_idx, weight| {
                     let out_node = out_node_idx.index();
                     let weight: f64 = weight.into();
                     self.incoming_signals[out_node] += weight * output;
@@ -196,8 +199,7 @@ where
                         self.seen_bfs.insert(out_node);
                         self.nodes_bfs.push(out_node_idx);
                     }
-                },
-            );
+                });
         }
     }
 
@@ -307,12 +309,14 @@ where
         let mut ranks: Vec<usize> = self.graph
             .nodes()
             .iter()
-            .map(|node| if node.node_type().is_input_node() {
-                0
-            } else if node.node_type().is_output_node() {
-                max_rank
-            } else {
-                1
+            .map(|node| {
+                if node.node_type().is_input_node() {
+                    0
+                } else if node.node_type().is_output_node() {
+                    max_rank
+                } else {
+                    1
+                }
             })
             .collect();
 
@@ -321,17 +325,15 @@ where
 
             self.graph.each_node_with_index(|_node, index| {
                 // make sure that the rank of all dependent links of a node are > the nodes rank
-                self.graph.each_active_forward_link_of_node(
-                    index,
-                    |out_node_idx, _weight| {
+                self.graph
+                    .each_active_forward_link_of_node(index, |out_node_idx, _weight| {
                         let src_rank = ranks[index.index()];
                         let dst_rank = ranks[out_node_idx.index()];
                         if dst_rank <= src_rank {
                             ranks[out_node_idx.index()] = src_rank + 1;
                             changed = true;
                         }
-                    },
-                );
+                    });
             });
 
             if !changed {
@@ -411,7 +413,6 @@ mod tests {
         assert_eq!(vec![1.0], cppn.calculate(&[&[4.0]]));
         assert_eq!(vec![1.0], cppn.calculate(&[&[-4.0]]));
     }
-
 
     #[test]
     fn test_find_random_unconnected_link_no_cycle() {

@@ -79,7 +79,6 @@ where
     layer_links: Vec<LayerLink>,
 }
 
-
 impl<P, T> Substrate<P, T>
 where
     P: Position,
@@ -127,8 +126,7 @@ where
         F: FnMut(Link<'a, P, T>),
     {
         for layer_link in self.layer_links.iter() {
-            for (source_idx, source) in
-                self.layers[layer_link.from_layer].nodes.iter().enumerate()
+            for (source_idx, source) in self.layers[layer_link.from_layer].nodes.iter().enumerate()
             {
                 // Reject invalid connections.
                 match source.node_connectivity {

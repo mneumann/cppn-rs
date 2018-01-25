@@ -83,7 +83,6 @@ impl Interpolate for Position2d {
     }
 }
 
-
 pub struct Position3d([f64; 3]);
 
 impl Position3d {
@@ -131,8 +130,8 @@ impl Position for Position3d {
 
     #[inline]
     fn distance_square(&self, other: &Self) -> f64 {
-        (self.x() - other.x()).powi(2) + (self.y() - other.y()).powi(2) +
-            (self.z() - other.z()).powi(2)
+        (self.x() - other.x()).powi(2) + (self.y() - other.y()).powi(2)
+            + (self.z() - other.z()).powi(2)
     }
 }
 

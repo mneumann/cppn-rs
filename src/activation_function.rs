@@ -43,9 +43,9 @@ impl ActivationFunction for GeometricActivationFunction {
     fn calculate(&self, x: f64) -> f64 {
         match *self {
             GeometricActivationFunction::Linear => x,
-            GeometricActivationFunction::LinearBipolarClipped => bipolar_debug_check(
-                bipolar_clip(x),
-            ),
+            GeometricActivationFunction::LinearBipolarClipped => {
+                bipolar_debug_check(bipolar_clip(x))
+            }
             GeometricActivationFunction::LinearClipped => x.min(1.0).max(0.0),
             GeometricActivationFunction::Absolute => x.abs(),
             GeometricActivationFunction::Gaussian => (-((x * 2.5).powi(2))).exp(),
@@ -97,7 +97,6 @@ impl ActivationFunction for GeometricActivationFunction {
         }.to_string()
     }
 }
-
 
 #[test]
 fn test_bipolar_linear_clipped() {
@@ -162,7 +161,6 @@ fn test_linear_clipped() {
         GeometricActivationFunction::LinearClipped.calculate(-1.1)
     );
 }
-
 
 #[test]
 fn test_constant1() {
