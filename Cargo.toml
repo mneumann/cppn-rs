@@ -6,6 +6,7 @@ license = "MIT"
 repository = "https://github.com/mneumann/cppn-rs"
 description = "Compositional Pattern Producing Networks"
 keywords = ["evolution", "neuro", "net", "cppn"]
+edition = "2018"
 
 include = ["src/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 
