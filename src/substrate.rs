@@ -1,5 +1,5 @@
-use position::Position;
-use cppn::{Cppn, CppnNodeType};
+use crate::position::Position;
+use crate::cppn::{Cppn, CppnNodeType};
 use std::fmt::Debug;
 
 #[derive(Debug, Copy, Clone)]

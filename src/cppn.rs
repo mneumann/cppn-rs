@@ -1,4 +1,4 @@
-use activation_function::ActivationFunction;
+use crate::activation_function::ActivationFunction;
 use acyclic_network::{Network, NodeType};
 pub use acyclic_network::NodeIndex as CppnNodeIndex;
 use fixedbitset::FixedBitSet;
@@ -102,12 +102,7 @@ impl<A: ActivationFunction> CppnNodeType for CppnNode<A> {
     }
 }
 
-pub type CppnGraph<N, L, EXTID>
-where
-    N: CppnNodeType,
-    L: Copy + Debug + Send + Sized + Into<f64>,
-    EXTID: Copy + Debug + Send + Sized + Ord,
-= Network<N, L, EXTID>;
+pub type CppnGraph<N, L, EXTID> = Network<N, L, EXTID>;
 
 /// Represents a Compositional Pattern Producing Network (CPPN)
 pub struct Cppn<'a, N, L, EXTID>
@@ -346,7 +341,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use activation_function::GeometricActivationFunction as AF;
+    use crate::activation_function::GeometricActivationFunction as AF;
     use super::{Cppn, CppnGraph, CppnNode};
     use acyclic_network::ExternalId;
     use rand;
